@@ -440,7 +440,7 @@ function func_check_state() {
     PLAYABILITY=$(echo "$METADATA_CURL" | jq -r '.playabilityStatus.status | select(.!=null)')
     __debug "Playability: $PLAYABILITY"
 
-    # You will get some playability reaons for:
+    # You will get some playability reasons for:
     # - `Offline` for streams are not live
     # - `This live event will begin in {n} hours.` for upcoming streams, you can also get specific
     #   UNIX timestamp with .scheduledStartTime (see below)
