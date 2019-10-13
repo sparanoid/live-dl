@@ -1,0 +1,1428 @@
+#!/bin/bash
+#
+# Live Downloader
+# Download live streams from YouTube
+#
+# Tunghsiao Liu <t@sparanoid.com>
+# Released under AGPL-3.0
+#
+
+#
+# System reqirements
+#
+# - aria2c
+# - bash
+# - exiv2
+# - ffmpeg
+# - jq
+# - streamlink
+# - youtube-dl
+# - yq (python-yq)
+#
+
+#
+# Changelog
+#
+# Sep 23, 2019
+# - First release
+#
+
+#
+# To-do list
+#
+# - [x] dependencies check
+# - [x] convert output from .ts to .mp4
+# - [x] youtube playlist support (not perfect when writing metadata)
+# - [x] thumbnail size check
+# - [x] write metadata and cover
+# - [x] email notification
+# - [x] mailgun setup guide
+# - [x] slack notification
+# - [x] telegram notification
+# - [ ] discord notification
+# - [x] refine telegram multichannel support
+# - [x] channel name mapping
+# - [x] download base dir support
+# - [ ] get channel avatar
+# - [ ] upcoming streams detection
+# - [ ] keyword filter
+# - [ ] metadata overriding mode
+# - [x] summary output for uploading
+# - [x] recording summary
+# - [x] embed cover
+# - [x] add hostname to output
+# - [ ] dockerize this script
+# - [ ] bilibili live support
+# - [ ] qq notification
+# - [x] rewrite is_live detection logic
+#
+
+#
+# Variables
+#
+USER_AGENT="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.120 Safari/537.36"
+IMAGE_PROXY_BASE="https://experiments.sparanoid.net/imageproxy/"
+
+#
+# Functions
+#
+
+# Text color helper borrowed from acme.sh
+__green() {
+  printf '\033[1;31;32m%b\033[0m' "$1"
+}
+
+__yellow() {
+  printf '\033[1;31;33m%b\033[0m' "$1"
+}
+
+__red() {
+  printf '\033[1;31;40m%b\033[0m' "$1"
+}
+
+__info() {
+  printf "[$(date)] %s\n" "$1"
+}
+
+__debug() {
+  DEBUG="${PARAM_DEBUG:-"false"}"
+  if [ "$DEBUG" == "true" ]; then
+    printf "[$(date)] DEBUG: %s\n" "$1"
+  fi
+}
+
+# Convert secs to HH:MM:SS format
+__convert_seconds() {
+  # https://stackoverflow.com/a/39452629/412385
+  printf '%02d:%02d:%02d\n' $(($1/3600)) $(($1%3600/60)) $(($1%60))
+}
+
+# Set the current working directory to the directory of this script
+# http://stackoverflow.com/a/17744637/412385
+cd ${0%/*}
+
+# Prepare options
+POSITIONAL=()
+while [ $# -gt 0 ]; do
+  key="$1"
+
+  case $key in
+    -e|--extension)
+      EXTENSION="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    -m|--mode)
+      PARAM_MODE="$2"
+      shift
+      shift
+      ;;
+    -o|--output)
+      PARAM_BASE_DIR="$2"
+      shift
+      shift
+      ;;
+    -i|--interval)
+      PARAM_INTERVAL="$2"
+      shift
+      shift
+      ;;
+    --init)
+      PARAM_INIT_SCRIPT=true
+      shift
+      ;;
+    --debug)
+      PARAM_DEBUG=true
+      shift
+      ;;
+    -a|--skip-alias)
+      PARAM_SKIP_ALIAS=true
+      shift
+      ;;
+    --skip-convert)
+      PARAM_SKIP_CONVERT=true
+      shift
+      ;;
+    --skip-email)
+      PARAM_SKIP_EMAIL=true
+      shift
+      ;;
+    --skip-slack)
+      PARAM_SKIP_SLACK=true
+      shift
+      ;;
+    --skip-telegram)
+      PARAM_SKIP_TELEGRAM=true
+      shift
+      ;;
+    -1|--once)
+      PARAM_ONE_TIME=true
+      shift
+      ;;
+    *) # other unknown options
+      POSITIONAL+=("$1") # save it in an array for later
+      shift
+      ;;
+  esac
+done
+
+# restore positional parameters
+set -- "${POSITIONAL[@]}"
+
+# Install repo for CentOS/RHEL
+function func_add_repo_rhel() {
+  rpm --import http://li.nux.ro/download/nux/RPM-GPG-KEY-nux.ro
+  rpm -Uvh http://li.nux.ro/download/nux/dextop/el7/x86_64/nux-dextop-release-0-5.el7.nux.noarch.rpm
+}
+
+# Check dependencies
+function func_check_deps() {
+  __info "Checking dependencies..."
+
+  if command -v ffmpeg >/dev/null 2>&1 ; then
+    __info "$(__green "Found"): $(ffmpeg -version | head -n 1)"
+  else
+    __info "FFmpeg not found, trying to install..."
+    if [ "$OSTYPE" == "linux-gnu" ]; then
+      if [ -f /etc/redhat-release ]; then
+        yum install epel-release -y
+        func_add_repo_rhel
+        yum install ffmpeg -y
+      fi
+      if [ -f /etc/lsb-release ]; then
+        apt-get install ffmpeg -y
+      fi
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+      brew install ffmpeg
+    else
+      __info "No platform/architecture supported, please install it manually."
+    fi
+  fi
+
+  if command -v youtube-dl >/dev/null 2>&1 ; then
+    __info "$(__green "Found"): youtube-dl $(youtube-dl --version | head -n 1)"
+  else
+    __info "youtube-dl not found, trying to install..."
+    if [ "$OSTYPE" == "linux-gnu" ]; then
+      curl -L https://yt-dl.org/downloads/latest/youtube-dl -o /usr/local/bin/youtube-dl
+      chmod a+rx /usr/local/bin/youtube-dl
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+      brew install ffmpeg
+    else
+      __info "No platform/architecture supported, please install it manually."
+    fi
+  fi
+
+  if command -v jq >/dev/null 2>&1 ; then
+    __info "$(__green "Found"): $(jq --version | head -n 1)"
+  else
+    __info "jq not found, trying to install..."
+    if [ "$OSTYPE" == "linux-gnu" ]; then
+      if [ -f /etc/redhat-release ]; then
+        yum install epel-release -y
+        yum install jq -y
+      fi
+      if [ -f /etc/lsb-release ]; then
+        apt-get install jq -y
+      fi
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+      brew install jq
+    else
+      __info "No platform/architecture supported, please install it manually."
+    fi
+  fi
+
+  if command -v yq >/dev/null 2>&1 ; then
+    __info "$(__green "Found"): $(yq --version | head -n 1)"
+  else
+    __info "yq not found, trying to install..."
+    if [ "$OSTYPE" == "linux-gnu" ]; then
+      if [ -f /etc/redhat-release ]; then
+        pip install yq
+      fi
+      if [ -f /etc/lsb-release ]; then
+        apt install python-pip
+        pip install yq
+      fi
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+      brew install python-yq
+    else
+      __info "No platform/architecture supported, please install it manually."
+    fi
+  fi
+
+  if command -v exiv2 >/dev/null 2>&1 ; then
+    __info "$(__green "Found"): $(exiv2 --version | head -n 1)"
+  else
+    __info "exiv2 not found, trying to install..."
+    if [ "$OSTYPE" == "linux-gnu" ]; then
+      if [ -f /etc/redhat-release ]; then
+        yum install exiv2 -y
+      fi
+      if [ -f /etc/lsb-release ]; then
+        apt-get install exiv2 -y
+      fi
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+      brew install exiv2
+    else
+      __info "No platform/architecture supported, please install it manually."
+    fi
+  fi
+
+  if command -v aria2c >/dev/null 2>&1 ; then
+    __info "$(__green "Found"): $(aria2c -v | head -n 1)"
+  else
+    __info "aria2 not found, trying to install..."
+    if [ "$OSTYPE" == "linux-gnu" ]; then
+      if [ -f /etc/redhat-release ]; then
+        yum install epel-release -y
+        yum install aria2 -y
+      fi
+      if [ -f /etc/lsb-release ]; then
+        apt-get install aria2 -y
+      fi
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+      brew install aria2
+    else
+      __info "No platform/architecture supported, please install it manually."
+    fi
+  fi
+
+  if command -v streamlink >/dev/null 2>&1 ; then
+    __info "$(__green "Found"): $(streamlink --version | head -n 1)"
+  else
+    __info "streamlink not found, trying to install..."
+    if [ "$OSTYPE" == "linux-gnu" ]; then
+      if [ -f /etc/redhat-release ]; then
+        pip install streamlink
+      fi
+      if [ -f /etc/lsb-release ]; then
+        add-apt-repository ppa:nilarimogard/webupd8
+        apt install streamlink
+      fi
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+      brew install streamlink
+    else
+      __info "No platform/architecture supported, please install it manually."
+    fi
+  fi
+
+  # Check if we need to create alias
+  if [ ! "$SKIP_ALIAS" ]; then
+    __info "Creating alias..."
+    _profile="$(func_detect_profile)"
+    _cwd="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+    _alias="alias live-dl='$_cwd/live-dl'"
+    grep -qxF "$_alias" "$_profile" || echo "$_alias" >> "$_profile"
+  fi
+}
+
+function func_create_url() {
+  # Create correct URL/URI based on user input
+  #
+  # https://www.youtube.com/channel/UCxRuOqAAVo-f516Gygjh_wA/live
+  # https://www.youtube.com/channel/UC1opHUrw8rvnsadT-iGp7Cg
+  # https://www.youtube.com/watch?v=S3CAGeeMRvo
+  # https://www.youtube.com/playlist?list=UU1opHUrw8rvnsadT-iGp7Cg
+  # https://www.youtube.com/feed/subscriptions
+  # https://live.bilibili.com/14917277
+  # https://live.bilibili.com/456117
+  #
+
+  local _url=$1
+
+  if [[ "$_url" =~ "youtube.com" ]]; then
+    __info "YouTube URL detected"
+    DL_PLATFORM="YouTube"
+
+    if [[ "$_url" =~ "/channel" && "$_url" =~ "/live" ]]; then
+      __info "YouTube channel detected"
+      DL_URL="$_url"
+      DL_TYPE="channel"
+
+    elif [[ "$_url" =~ "/channel" && ! "$_url" =~ "/live" ]]; then
+      __info "YouTube video detected (alt)"
+      DL_URL="$_url/live"
+      DL_TYPE="channel"
+
+    elif [[ "$_url" =~ "/watch"* ]]; then
+      __info "YouTube video detected"
+      DL_URL="$_url"
+      DL_TYPE="video"
+
+    elif [[ "$_url" =~ "/playlist"* ]]; then
+      __info "YouTube playlist detected"
+      DL_URL="$_url"
+      DL_TYPE="playlist"
+
+    else
+      __info "$(__red "Non-supported YouTube URL")"
+      exit 1
+    fi
+
+  elif [[ "$_url" =~ "live.bilibili.com" ]]; then
+    __info "Bilibili detected"
+    DL_URL="$_url"
+    DL_PLATFORM="bilibili"
+
+  else
+    if [[ ! "$_url" == "http"* ]]; then
+      __info "$(__yellow "URI detected, guessing... (Use full URL to avoid guessing URL)")"
+
+      if [[ "$_url" =~ ^([0-9]+)$ ]]; then
+        __info "Bilibili room ID detected"
+        DL_URL="https://live.bilibili.com/$_url"
+        DL_PLATFORM="bilibili"
+
+      # if URI is longer than 11 (11 is the length of YouTube video ID)
+      elif [[ ${#_url} -ge 12 ]]; then
+        __info "YouTube channel ID detected"
+        DL_URL="https://www.youtube.com/channel/$_url/live"
+        DL_PLATFORM="YouTube"
+        DL_TYPE="channel"
+
+      else
+        __info "YouTube video ID detected"
+        DL_URL="https://www.youtube.com/watch?v=$_url"
+        DL_PLATFORM="YouTube"
+        DL_TYPE="video"
+      fi
+
+    else
+      __info "$(__red "Non-supported URL")"
+      exit 1
+    fi
+  fi
+}
+
+function func_check_state() {
+  local _url=$1
+  local _mode=$2
+
+  __debug "start func_check_sate"
+
+  # Assume it's not a valid page, I use a custom state `invalid` here as initial state
+  CONTENT_STATE="invalid"
+
+  # Actually there's an official way to check if the streamer is live or not[^1] using YouTube
+  # offical Data API, but it's costy that every search request costs you 100 credits. However
+  # you can try it online[^2] to see how it works.
+  #
+  # If you have accounts that registered YouTube developer program before 2017, and has more
+  # than 10 million credit quota, you can contact me t@sparanoid.com
+  #
+  # [1]: https://developers.google.com/youtube/v3/docs/search
+  # [2]: https://developers.google.com/youtube/v3/code_samples/code_snippets
+
+  # First check: use curl to check HTML pages for live state
+  # Pros:
+  # - Fast, no additional API requests compared to youtube-dl
+  # - More ban-proof compared to youtube-dl
+  # Cons:
+  # - Can get wrong live state due to page caching, network interrupts, etc.
+  local _body=$(curl -s --compressed -H "User-Agent: $USER_AGENT" "$_url")
+
+  METADATA_CURL=`echo "$_body" | grep '"ytInitialPlayerResponse"' | perl -pe 's/^.*?({".*}).*/\1/g' | jq -r .`
+
+  # Check if returns nothing
+  if [ ! -z "$METADATA_CURL" ]; then
+    __debug "Got valid cURL metadata"
+
+    # At the time of writing, when `videoDetails.isLive` exists, it should be on live, when a video
+    # is not live (normal videos, and even upcoming streams) this key will be missing and jq will
+    # return `null`
+    IS_LIVE=$(echo "$METADATA_CURL" | jq -r '.videoDetails.isLive | select(.!=null)')
+    __debug "Is live: $IS_LIVE"
+
+    # This status will always return:
+    # - `OK` for live streams, private streams, or normal videos,
+    # - `LIVE_STREAM_OFFLINE` for offline channel
+    PLAYABILITY=$(echo "$METADATA_CURL" | jq -r '.playabilityStatus.status | select(.!=null)')
+    __debug "Playability: $PLAYABILITY"
+
+    # You will get some playability reaons for:
+    # - `Offline` for streams are not live
+    # - `This live event will begin in {n} hours.` for upcoming streams, you can also get specific
+    #   UNIX timestamp with .scheduledStartTime (see below)
+    # - `null` (this key will be missing) for:
+    #   - On live streams or private streams
+    #   - Non-streaming content
+    PLAYABILITY_REASON=$(echo "$METADATA_CURL" | jq -r '.playabilityStatus.reason | select(.!=null)')
+    __debug "Playability Reason: $PLAYABILITY_REASON"
+
+    # When the streamer is streaming privately, this key will be empty
+    STREAMABILITY=$(echo "$METADATA_CURL" | jq -r '.playabilityStatus.liveStreamability.liveStreamabilityRenderer.videoId | select(.!=null)')
+    __debug "Streamability ID: $STREAMABILITY"
+
+    # Get upcoming time when available
+    # This key will be missing if no upcoming events available
+    UPCOMING_TIME=$(echo "$METADATA_CURL" | jq -r '.playabilityStatus.liveStreamability.liveStreamabilityRenderer.offlineSlate.liveStreamOfflineSlateRenderer.scheduledStartTime | select(.!=null)')
+    __debug "Scheduled Start Time: $UPCOMING_TIME"
+
+    # Get some metadata first, I will retrieve more later using youtube-dl
+    VIDEO_ID=$(echo "$METADATA_CURL" | jq -r '.videoDetails.videoId')
+    FULLTITLE=$(echo "$METADATA_CURL" | jq -r '.videoDetails.title')
+    DESCRIPTION=$(echo "$METADATA_CURL" | jq -r '.videoDetails.shortDescription')
+    UPLOADER=$(echo "$METADATA_CURL" | jq -r '.videoDetails.author')
+    CHANNEL_ID=$(echo "$METADATA_CURL" | jq -r '.videoDetails.channelId')
+
+    # If I got `isLive: true` in first check, let me assume it's live but I can't trust it so I
+    # will do a secound check using youtube-dl later with this flag.
+    if [ "$IS_LIVE" == "true" ]; then
+      __info "cURL check seems goes live now, continue checking..."
+      CONTENT_STATE="live"
+    else
+      # If `isLive` key not exists, check if it's a valid video (playable)
+      if [ "$PLAYABILITY" == "OK" ]; then
+
+        # Then check if it's a channel URL
+        if [ "$DL_TYPE" == "channel" ]; then
+
+          # Check if the streamer is streaming privately.
+          if [ -z "$STREAMABILITY" ]; then
+            __info "$(__yellow "/live redirects to channel home, maybe is streaming privately!")"
+          fi
+        else
+          CONTENT_STATE="video"
+        fi
+      fi
+
+      # Then check if the stream just goes offline
+      if [ "$PLAYABILITY" == "LIVE_STREAM_OFFLINE" ]; then
+        CONTENT_STATE="offline"
+
+        # Check if upcoming event available
+        if [ ! -z "$UPCOMING_TIME" ]; then
+          __info "$(__yellow "Upcoming event detected: $UPCOMING_TIME")"
+        fi
+      fi
+    fi
+
+    # Print current state for first check
+    __debug "Current state for first check: $(__yellow "$CONTENT_STATE")"
+  else
+    __info "$(__yellow "Not a valid page, something wrong with your internet connection?")"
+  fi
+
+  # Old method:
+  # if echo "$_body" | grep -q 'ytplayer'; then
+
+  #   # Assume it's not a live streaming page
+  #   IS_LIVE_CONTENT="false"
+
+  #   # Actually there's an official way to check if the streamer is live or not[^1] using YouTube
+  #   # offical Data API, but it's costy that every search request costs you 100 credits. However
+  #   # you can try it online[^2] to see how it works.
+  #   #
+  #   # If you have accounts that registered YouTube developer program before 2017, and has more
+  #   # than 10 million credit quota, you can contact me t@sparanoid.com
+  #   #
+  #   # [1]: https://developers.google.com/youtube/v3/docs/search
+  #   # [2]: https://developers.google.com/youtube/v3/code_samples/code_snippets
+  #   if echo "$_body" | grep 'ytplayer' | grep -q '\\"isLive\\":true'; then
+  #     # Is live, break out of loop and continue to next step
+  #     IS_LIVE_CONTENT="true"
+  #     break
+  #   fi
+
+  #   # Also break out if the given URL is not a channel (probably a video or a playlist)
+  #   # This extra check could avoid downloading an upcoming stream when then "isLive" check above
+  #   # fails for some reason (like YouTube changes the `isLive` JSON key to something else)
+  #   if ! [ "$DL_TYPE" == "channel" ]; then
+  #     # This script now can also handle normal YouTube video, but there's no way to check if the
+  #     # given URL is a normal video or an upcoming stream, so we can just break out of the loop
+  #     # and fallback to youtube-dl to check whelter this URL is downloadable. And make sure it
+  #     # only execute once.
+  #     ONE_TIME="true"
+  #     break
+  #   fi
+
+  # else
+  #   __info "$(__yellow "Not a valid video page!")"
+  #   __info "You may get this warning due to internet interruption, continue runing"
+
+  #   # NOTE: Although this is the natural logic to exit the program if we can't find specific
+  #   # element on this page that means it's not a valid video page. But in some rare cases, the
+  #   # original page may be down or unreachable for internet interruption or other network issues.
+  #   # So I decide to let the script continue to execute because this script is mainly focused on
+  #   # recording streams.
+
+  #   # exit 1
+  # fi
+
+  # Second check: use `youtube-dl` to check live state
+  # NOTE: please avoid adding additional paths in the -o (template) option, it doesn't work well
+  # and conflicts with my custom directory setup!
+  # I also need redirect stderr to stdout to catch any error during fetching URL
+  # Pros:
+  # - Accurate live state detection
+  # Cons:
+  # - Slow, youtube-dl will fire API requests to get more info it need to download videos
+  # - Your IP can get banned easily when runing in download or notifier mode due to large amount of
+  #   API requests.
+  if [ "$CONTENT_STATE" != "invalid" ]; then
+
+    # Condition explain:
+    # Only run second check when:
+    # - The stream goes live that need a second check to ensure it's actually live
+    # - The stream goes offline that need a second check to ensure it's actually offline
+    if ([ "$CONTENT_STATE" != "offline" ] && [ "$_mode" != "lazy" ]) || \
+      ([ "$CONTENT_STATE" == "offline" ] && [ "$_mode" == "lazy" ])
+    then
+      __info "Re-checking via youtube-dl..."
+      METADATA=`youtube-dl --ignore-config --no-playlist --playlist-items 0 \
+        --skip-download --print-json --force-ipv4 --referer 'https://www.youtube.com/feed/subscriptions' \
+        -o '%(upload_date)s %(title)s (%(id)s).%(ext)s' \
+        "$_url" 2>&1`
+
+      # Check if returns nothing
+      if [ ! -z "$METADATA" ]; then
+        __debug "Got valid youtube-dl metadata"
+
+        # Check if it's a valid JSON return
+        if [[ "$METADATA" == '{'* ]]; then
+          # Unlike other part of the jq checks, I ignore the `| select(.!=null)` to explicitly
+          # return `null` to tell if it's a normal video or it just returns nothing
+          local _is_live=`echo "$METADATA" | jq -r '.is_live'`
+
+          # Parse metadata
+          func_process_youtube_metadata
+
+          # Map uploader name with pre-defined config
+          func_process_channel_mapping
+
+          # Finalize variables and paths then output summary
+          func_finalize_vars
+
+          if [ "$_is_live" == "true" ]; then
+            __debug "Got state: live";
+            CONTENT_STATE="live"
+          elif [ "$_is_live" == "null" ]; then
+            __debug "Got state: video";
+            CONTENT_STATE="video"
+          else
+            __info "youtube-dl does not returns a valid state";
+            CONTENT_STATE="invalid"
+          fi
+        else
+          __debug "$METADATA"
+          if [[ "$METADATA" =~ "This video is unavailable" ]]; then
+            # Suppress `video is unavailable` errors since they're common when stream is not live
+            __debug "This video is unavailable, maybe not live at the moment."
+            CONTENT_STATE="unavailable"
+          elif [[ "$METADATA" =~ "HTTP Error 404" ]]; then
+            __info "$(__yellow "Not a valid video page (Error 404)!")"
+            CONTENT_STATE="not_found"
+          elif [[ "$METADATA" =~ "HTTP Error 429" ]]; then
+            __info "$(__yellow "Your IP is limited by YouTube (Error 429)!")"
+            CONTENT_STATE="too_many_requests"
+          else
+            __info "$(__yellow "Unknown metadata")"
+            __info "$METADATA"
+            CONTENT_STATE="invalid"
+          fi
+        fi
+      else
+        __info "$(__yellow "Second check failed, not valid youtube-dl metadata")"
+        CONTENT_STATE="invalid"
+      fi
+
+      # Print current state for second check
+      __debug "Current state for second check: $(__yellow "$CONTENT_STATE")"
+    fi
+  fi
+}
+
+function func_send_email() {
+  local _title=$1
+  local _content=$2
+
+  if [ "$SKIP_EMAIL" != "true" ]; then
+
+    if [ "$CONFIG_MAILGUN_API" == "key-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" ]; then
+      __info "$(__yellow "No Mailgun credentials found, skip sending email notification")"
+    else
+      __info "Sending email notification..."
+      curl -s --user "api:$CONFIG_MAILGUN_API" \
+        https://api.mailgun.net/v3/"$CONFIG_MAILGUN_DOMAIN"/messages \
+        -F from="Livestream Downloader (live-dl) <live-dl@$CONFIG_MAILGUN_DOMAIN>" \
+        -F to="$CONFIG_MAILGUN_RECEIPT" \
+        -F subject="$_title" \
+        -F text="$_content" >> "$OUTPUT_PATH.log" 2>&1
+    fi
+  fi
+}
+
+function func_send_slack() {
+  local _type=$1
+
+  if [ "$SKIP_SLACK" != "true" ]; then
+
+    if [ "$CONFIG_SLACK_WEBHOOK" == "https://hooks.slack.com/services/" ]; then
+      __info "$(__yellow "No Slack credentials found, skip sending Slack notification")"
+    else
+      __info "Sending Slack notification..."
+
+      if [ "$_type" == "start" ]; then
+        local _body='{
+          "icon_emoji": ":red_circle:",
+          "channel": "'"$UPLOADER"'",
+          "text": "'"$UPLOADER"' goes live on '"$DL_PLATFORM"' '"$WEBPAGE_URL"'",
+          "attachments": [
+            {
+              "fallback": "'"$UPLOADER"' goes live on '"$DL_PLATFORM"'",
+              "color": "#f570de",
+              "fields": [
+                {
+                  "title": "Title",
+                  "value": "'"$FULLTITLE"'",
+                  "short": false
+                },
+                {
+                  "title": "ID",
+                  "value": "<'"$WEBPAGE_URL"'|'"$VIDEO_ID"'>",
+                  "short": true
+                },
+                {
+                  "title": "Channel",
+                  "value": "<'"$CHANNEL_URL"'|'"$CHANNEL_ID"'>",
+                  "short": true
+                },
+                {
+                  "title": "Thumbnail",
+                  "value": "<'"$THUMBNAIL_CALC"'|View in new tab>",
+                  "short": true
+                },
+                {
+                  "title": "Date",
+                  "value": "'"$UPLOAD_DATE"'",
+                  "short": true
+                }
+              ]
+            }
+          ]
+        }'
+      elif [ "$_type" == "stop" ]; then
+        local _body='{
+          "icon_emoji": ":black_square:",
+          "channel": "'"$UPLOADER"'",
+          "text": "'"$UPLOADER"' stopped streaming on '"$DL_PLATFORM"' '"$WEBPAGE_URL"'",
+          "attachments": [
+            {
+              "fallback": "'"$UPLOADER"' stopped streaming on '"$DL_PLATFORM"'",
+              "color": "#f570de",
+              "fields": [
+                {
+                  "title": "Title",
+                  "value": "'"$FULLTITLE"'",
+                  "short": false
+                },
+                {
+                  "title": "Views",
+                  "value": "'"$VIEW_COUNT"'",
+                  "short": true
+                },
+                {
+                  "title": "Likes",
+                  "value": "'"$LIKE_COUNT"'",
+                  "short": true
+                },
+                {
+                  "title": "Dislikes",
+                  "value": "'"$DISLIKE_COUNT"'",
+                  "short": true
+                },
+                {
+                  "title": "Average Rating",
+                  "value": "'"$AVERAGE_RATING"'",
+                  "short": true
+                }
+              ]
+            }
+          ]
+        }'
+      else
+        local _body='{
+          "icon_emoji": ":ghost:",
+          "channel": "'"$UPLOADER"'",
+          "text": "'"$UPLOADER"' goes live on '"$DL_PLATFORM"' '"$WEBPAGE_URL"'",
+          "attachments": [
+            {
+              "fallback": "'"$UPLOADER"' goes live on '"$DL_PLATFORM"'",
+              "color": "#f570de",
+              "fields": [
+                {
+                  "title": "Title",
+                  "value": "'"$FULLTITLE"'",
+                  "short": false
+                },
+                {
+                  "title": "ID",
+                  "value": "<'"$WEBPAGE_URL"'|'"$VIDEO_ID"'>",
+                  "short": true
+                },
+                {
+                  "title": "Channel",
+                  "value": "<'"$CHANNEL_URL"'|'"$CHANNEL_ID"'>",
+                  "short": true
+                },
+                {
+                  "title": "Thumbnail",
+                  "value": "<'"$THUMBNAIL_CALC"'|View in new tab>",
+                  "short": true
+                },
+                {
+                  "title": "Date",
+                  "value": "'"$UPLOAD_DATE"'",
+                  "short": true
+                }
+              ]
+            }
+          ]
+        }'
+      fi
+
+      curl -s -X POST -H 'Content-type: application/json' \
+        -d "$_body" "$CONFIG_SLACK_WEBHOOK"
+    fi
+  fi
+}
+
+function func_send_telegram() {
+  local _type=$1
+
+  # https://core.telegram.org/bots/api
+  if [ "$SKIP_TELEGRAM" != "true" ]; then
+
+    if [ "$CONFIG_TELEGRAM_BOT" == "000000000:xxxxxxxxx" ]; then
+      __info "$(__yellow "No Telegram credentials found, skip sending Telegram notification")"
+    else
+      if [ "$UPLOADER_TG_CHANNEL" ]; then
+        __info "Sending Telegram notification..."
+        local _time_start=$(TZ=":$UPLOADER_TIMEZONE" date +"%b %e %H:%M %Z (%z)")
+
+        if [ "$_type" == "start" ]; then
+          local _type="sendPhoto"
+          local _body='{
+            "chat_id": "'"$UPLOADER_TG_CHANNEL"'",
+            "photo": "'"$THUMBNAIL_CALC"'",
+            "caption": "🔴 '"$UPLOADER"' goes live on '"$DL_PLATFORM"'\n'"$FULLTITLE"'\n\nStarts on '"$_time_start"'",
+            "reply_markup": {
+              "inline_keyboard": [
+                [
+                  {"text": "Watch it now", "url": "'"$WEBPAGE_URL"'"}
+                ],
+                [
+                  {"text": "View channel", "url": "'"$CHANNEL_URL"'"},
+                  {"text": "View artwork", "url": "'"$IMAGE_PROXY_BASE$THUMBNAIL_CALC"'"}
+                ]
+              ]
+            },
+            "disable_notification": false
+          }'
+        elif [ "$_type" == "stop" ]; then
+          local _type="sendMessage"
+          local _body='{
+            "chat_id": "'"$UPLOADER_TG_CHANNEL"'",
+            "text": "⬛️ '"$UPLOADER"' stopped streaming on '"$DL_PLATFORM"'\n'"$FULLTITLE"'\n\nViews: '"$VIEW_COUNT"'\nLikes: '"$LIKE_COUNT"'\nDislikes: '"$DISLIKE_COUNT"'\nAverage Rating: '"$AVERAGE_RATING"'",
+            "reply_markup": {
+              "inline_keyboard": [
+                [
+                  {"text": "Watch finished stream", "url": "'"$WEBPAGE_URL"'"}
+                ]
+              ]
+            },
+            "disable_notification": true
+          }'
+        else
+          local _type="sendMessage"
+          local _body='{
+            "chat_id": "'"$UPLOADER_TG_CHANNEL"'",
+            "text": "🔴 '"$UPLOADER"' goes live on '"$DL_PLATFORM"'\n'"$FULLTITLE"'\n'"$WEBPAGE_URL"'",
+            "reply_markup": {
+              "inline_keyboard": [
+                [
+                  {"text": "Watch it now", "url": "'"$WEBPAGE_URL"'"}
+                ],
+                [
+                  {"text": "View channel", "url": "'"$CHANNEL_URL"'"},
+                  {"text": "View artwork", "url": "'"$IMAGE_PROXY$THUMBNAIL_CALC"'"}
+                ]
+              ]
+            },
+            "disable_notification": false
+          }'
+        fi
+
+        curl -s -X POST -H 'Content-Type: application/json' \
+          -d "$_body" "https://api.telegram.org/bot$CONFIG_TELEGRAM_BOT/$_type"
+      else
+        __info "No specific channel set for current user, skip sending Telegram notification."
+      fi
+    fi
+  fi
+}
+
+# Detect profile file if not specified as environment variable
+# Borrowed from acme.sh
+function func_detect_profile() {
+  if [ -n "$PROFILE" -a -f "$PROFILE" ]; then
+    echo "$PROFILE"
+    return
+  fi
+
+  DETECTED_PROFILE=''
+  SHELLTYPE="$(basename "/$SHELL")"
+
+  if [ "$SHELLTYPE" = "bash" ]; then
+    if [ -f "$HOME/.bashrc" ]; then
+      DETECTED_PROFILE="$HOME/.bashrc"
+    elif [ -f "$HOME/.bash_profile" ]; then
+      DETECTED_PROFILE="$HOME/.bash_profile"
+    fi
+  elif [ "$SHELLTYPE" = "zsh" ]; then
+    DETECTED_PROFILE="$HOME/.zshrc"
+  fi
+
+  if [ -z "$DETECTED_PROFILE" ]; then
+    if [ -f "$HOME/.profile" ]; then
+      DETECTED_PROFILE="$HOME/.profile"
+    elif [ -f "$HOME/.bashrc" ]; then
+      DETECTED_PROFILE="$HOME/.bashrc"
+    elif [ -f "$HOME/.bash_profile" ]; then
+      DETECTED_PROFILE="$HOME/.bash_profile"
+    elif [ -f "$HOME/.zshrc" ]; then
+      DETECTED_PROFILE="$HOME/.zshrc"
+    fi
+  fi
+
+  echo "$DETECTED_PROFILE"
+}
+
+function func_process_youtube_metadata() {
+  # Extract video info from JSON
+  VIDEO_ID=$(echo "$METADATA" | jq -r '.id')
+  FULLTITLE=$(echo "$METADATA" | jq -r '.fulltitle')
+  DESCRIPTION=$(echo "$METADATA" | jq -r '.description')
+  UPLOAD_DATE=$(echo "$METADATA" | jq -r '.upload_date')
+  UPLOADER=$(echo "$METADATA" | jq -r '.uploader')
+  CHANNEL_ID=$(echo "$METADATA" | jq -r '.channel_id')
+  THUMBNAIL=$(echo "$METADATA" | jq -r '.thumbnail')
+  WEBPAGE_URL=$(echo "$METADATA" | jq -r '.webpage_url')
+  CHANNEL_URL=$(echo "$METADATA" | jq -r '.channel_url')
+  VIEW_COUNT=$(echo "$METADATA" | jq -r '.view_count')
+  LIKE_COUNT=$(echo "$METADATA" | jq -r '.like_count')
+  DISLIKE_COUNT=$(echo "$METADATA" | jq -r '.dislike_count')
+  AVERAGE_RATING=$(echo "$METADATA" | jq -r '.average_rating')
+
+  # Filename (without path)
+  FILENAME=$(echo "$METADATA" | jq -r '._filename' | sed -e 's/.mp4//' | sed -e 's/.webm//')
+}
+
+function func_process_channel_mapping() {
+  # Find channel name mapping
+  # https://stackoverflow.com/a/40027637/412385
+
+  if [ "$CHANNEL_ID" ]; then
+    UPLOADER_MAPPED_RAW=`echo "$CONFIG_RAW" | jq -r --arg CHANNEL_ID "$CHANNEL_ID" \
+      '.map[] | select(.youtube | contains($CHANNEL_ID))'`
+
+    # Check if current uploader has custom name mapping in config
+    UPLOADER_MAPPED=`echo "$UPLOADER_MAPPED_RAW" | jq -r .name`
+
+    if [ ! -z "${UPLOADER_MAPPED// }" ]; then
+      __debug "Channel name mapping found: $(__yellow "$UPLOADER") → $(__green "$UPLOADER_MAPPED")"
+      __debug "I will use $(__green "$UPLOADER_MAPPED") for folder name, embedding metadata, etc."
+      UPLOADER="$UPLOADER_MAPPED"
+    else
+      __debug "Channel name mapping $(__yellow "not found"), consider adding it in config.yml"
+      __debug "I will use $(__yellow "$UPLOADER") for folder name, embedding metadata, etc."
+    fi
+
+    # Check if current uploader has dedicated Telegram channel
+    UPLOADER_TG_CHANNEL=`echo "$UPLOADER_MAPPED_RAW" | jq -r '.telegram | select (.!=null)'`
+
+    if [ "${UPLOADER_TG_CHANNEL}" ]; then
+      __debug "Telegram channel found: $(__green "$UPLOADER_TG_CHANNEL")"
+    else
+      __debug "Telegram channel $(__yellow "not found"), consider adding it in config.yml"
+    fi
+
+    # Check if current uploader has custom timezone
+    UPLOADER_TIMEZONE=`echo "$UPLOADER_MAPPED_RAW" | jq -r '.timezone | select (.!=null)'`
+
+    if [ -z "$UPLOADER_TIMEZONE" ]; then
+      UPLOADER_TIMEZONE=`echo "$CONFIG_RAW" | jq -r '.config.timezone'`
+    fi
+
+  else
+    __info "$(__red "Missing uploader ID!")"
+    exit 1
+  fi
+}
+
+function func_prepare_dir() {
+  local _dir=$1
+  [ -d "$_dir" ] || mkdir -p "$_dir"
+}
+
+function func_finalize_vars() {
+  # Output preffix dir (without user base dir)
+  # Also I replace slash with underscores here to avoid nesting directories
+  # i.e.
+  # 天宮 こころ / Kokoro Amamiya 【にじさんじ所属】 will become:
+  # 天宮 こころ／Kokoro Amamiya 【にじさんじ所属】
+  FILENAME_BASE=$(echo "$UPLOADER" | sed "s/\//／/" | sed "s/ ／ /／/")
+
+  # Output base without filename
+  OUTPUT_BASE="$BASE_DIR/$FILENAME_BASE"
+
+  # Full output dir
+  OUTPUT_PATH="$OUTPUT_BASE/$FILENAME"
+
+  # Write prettified JSON metadata to file
+  func_prepare_dir "$OUTPUT_BASE"
+  METADATA_PRETTIFIED=`echo $METADATA | jq .`
+  echo "$METADATA_PRETTIFIED" > "$OUTPUT_PATH.json"
+
+  # Download thumbnail
+  # youtube-dl has built-in thumbnail download feature via --write-all-thumbnails but it's not
+  # perfect due to the limitation of YouTube API, youtube-dl will only get `hqdefault.jpg` for
+  # finished streams (live streams not affected) because offical API only returns this size even
+  # higher resolution is available (`maxresdefault.jpg`). So I created some additional checks here.
+  #
+  # For stream content, YouTube provides both `maxresdefault.jpg` and `maxresdefault_live.jpg`, but
+  # `maxresdefault.jpg` is more reliable as `maxresdefault_live.jpg` will return black image
+  # (200 HTTP code) even if the streamer set a smaller thumbnail that is only suitable at a smaller
+  # size (hqdefault.jpg)
+  #
+  # Another scenario is that that the streamer set an upcoming event with thumbnail-A, and she/he
+  # later changes it to another (thumbnail-B) when stream goes live, `maxresdefault_live.jpg` seems
+  # always returns thumbnail-A while `maxresdefault.jpg` can get the correct thumbnail-B.
+  #
+  # First download thumbnail provided from youtube-dl
+  THUMBNAIL_CALC="$THUMBNAIL"
+  curl -s "$THUMBNAIL_CALC" -o "$OUTPUT_PATH.jpg"
+
+  # Check thumbnail width
+  THUMB_W=`exiv2 "$OUTPUT_PATH.jpg" | awk -F: '/Image size/ {print $2}' | cut -dx -f1 | tr -d ' '`
+  if [ "$THUMB_W" -lt "1280" ]; then
+    __info "Thumbnail ($THUMBNAIL_CALC) downloeded via youtube-dl is too small, try our own method"
+
+    # Re-assign thumbnail URL
+    THUMBNAIL_CALC="https://i.ytimg.com/vi/$VIDEO_ID/maxresdefault.jpg"
+
+    # Check if thumbnail is available (has 200 HTTP response code)
+    local _thumb_resp=$(curl -qSsfw "%{http_code}" $THUMBNAIL_CALC -o /dev/null)
+
+    if [ "$_thumb_resp" != "200" ]; then
+      __info "No high-res thumbnial (maxresdefault.jpg), failback to hqdefault.jpg"
+      THUMBNAIL_CALC="https://i.ytimg.com/vi/$VIDEO_ID/hqdefault.jpg"
+      curl -s "$THUMBNAIL_CALC" -o "$OUTPUT_PATH.jpg"
+    else
+      curl -s "$THUMBNAIL_CALC" -o "$OUTPUT_PATH.jpg"
+    fi
+  fi
+
+  # Output summary
+  SUMMARY="ID:        $VIDEO_ID
+Title:     $FULLTITLE
+URL:       $WEBPAGE_URL
+Author:    $UPLOADER
+Channel:   $CHANNEL_URL
+Date:      $UPLOAD_DATE
+Thumbnail: $THUMBNAIL_CALC
+Filename:  $FILENAME
+Location:  $OUTPUT_BASE/
+Hostname:  $HOSTNAME
+"
+
+  # Trim additional whitespace, used by email body
+  SUMMARY_TRIM=`echo "$SUMMARY" | perl -pe 's/: +/: /g'`
+}
+
+function func_download_youtube() {
+  __info "Start downloading $FILENAME"
+
+  # Log tail inspired by https://github.com/printempw/live-stream-recorder
+  __info "Logging: tail -f \"$OUTPUT_PATH.log\""
+
+  if [ "$CONTENT_STATE" == "live" ]; then
+    streamlink \
+      --force \
+      --http-timeout 180 \
+      --hls-live-restart \
+      --hls-segment-threads 10 \
+      --hls-segment-timeout 120 \
+      --hls-segment-attempts 150 \
+      --hls-segment-ignore-names preloading \
+      --hls-playlist-reload-attempts 30 \
+      --hls-live-edge 5 \
+      --hls-timeout 90 \
+      --ringbuffer-size 256M \
+      --loglevel trace \
+      -o "$OUTPUT_PATH.ts" \
+      "${WEBPAGE_URL}" best >> "$OUTPUT_PATH.log" 2>&1
+  elif [ "$CONTENT_STATE" == "video" ]; then
+    if [ "$DL_TYPE" == "playlist" ]; then
+      # TODO: You have to loop over all the videos to add metadata and thumbnail manually.
+      # Or you can add the following parameters to handle it using youtube-dl automatically:
+      #   --embed-thumbnail # requires AtomicParsley
+      #   --add-metadata
+      youtube-dl \
+        --ignore-config \
+        --download-archive archive.txt \
+        --embed-thumbnail \
+        --add-metadata \
+        --external-downloader aria2c \
+        --external-downloader-args '-j 16 -s 16 -x 16 -k 1M --retry-wait 10 --max-tries 10' \
+        -f 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best' \
+        --all-subs \
+        --sub-format best \
+        --embed-subs \
+        --force-ipv4 \
+        --retries 30 \
+        -o "${OUTPUT_BASE}/%(upload_date)s %(title)s (%(id)s).%(ext)s" \
+        "${WEBPAGE_URL}"
+    else
+      youtube-dl \
+        --ignore-config \
+        --external-downloader aria2c \
+        --external-downloader-args '-j 16 -s 16 -x 16 -k 1M --retry-wait 10 --max-tries 10' \
+        -f 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best' \
+        --all-subs \
+        --sub-format best \
+        --embed-subs \
+        --force-ipv4 \
+        --retries 30 \
+        -o "${OUTPUT_BASE}/%(upload_date)s %(title)s (%(id)s).%(ext)s" \
+        "${WEBPAGE_URL}"
+    fi
+  else
+    __info "Not a valid URL, skippping"
+  fi
+}
+
+function func_download_bilibili() {
+  __info "bilibili download func"
+}
+
+function func_finalize_download() {
+  __info "Stop downloading"
+
+  if [ "$CONTENT_STATE" == "live" ]; then
+    # Convert from TS to MP4 (will override existing with -y option)
+    __info "Converting to MP4"
+    ffmpeg -i "$OUTPUT_PATH.ts" -y \
+      -codec copy \
+      "$OUTPUT_PATH.mp4" >> "$OUTPUT_PATH.log" 2>&1
+
+    # Remove original TS file
+    rm -f "$OUTPUT_PATH.ts"
+  fi
+
+  # Write metadata to MP4 (will override existing with -y option)
+  if [ -f "$OUTPUT_PATH.mp4" ]; then
+    __info "Writing metadata"
+    ffmpeg -i "$OUTPUT_PATH.mp4" -y \
+      -codec copy \
+      -metadata title="$FULLTITLE" \
+      -metadata artist="$UPLOADER" \
+      -metadata date="$UPLOAD_DATE" \
+      -metadata description="$DESCRIPTION" \
+      -metadata comment="$DESCRIPTION" \
+      "$OUTPUT_PATH-metadata.mp4" >> "$OUTPUT_PATH.log" 2>&1
+    rm -f "$OUTPUT_PATH.mp4" && mv "$OUTPUT_PATH-metadata.mp4" "$OUTPUT_PATH.mp4"
+  else
+    __info "$(__yellow "Output file not exists, skip writing metadata.")"
+  fi
+
+  # Writing artwork cover
+  # I have to emabed artwork and metadata in two separate steps be cause FFmpeg can't pipe these
+  # two steps into one. And AtomicParsley also doesn't support medatada in-file writing.
+  if [ -f "$OUTPUT_PATH.mp4" ]; then
+    __info "Writing artwork"
+
+    # Check if artwork avaiable
+    if [ -f "$OUTPUT_PATH.jpg" ]; then
+      ffmpeg -i "$OUTPUT_PATH.mp4" -y \
+        -i "$OUTPUT_PATH.jpg" \
+        -map 1 -map 0 \
+        -codec copy \
+        -disposition:0 attached_pic \
+        "$OUTPUT_PATH-artwork.mp4" >> "$OUTPUT_PATH.log" 2>&1
+      rm -f "$OUTPUT_PATH.mp4" && mv "$OUTPUT_PATH-artwork.mp4" "$OUTPUT_PATH.mp4"
+    else
+      __info "$(__yellow "Artwork missing, this is a rare case, please report at my GitHub.")"
+    fi
+  else
+    __info "$(__yellow "Output file not exists, skip embedding artwork.")"
+  fi
+
+  # Get file summary for later use
+  if [ -f "$OUTPUT_PATH.mp4" ]; then
+    DOWNLOADED_FILE_SUMMARY=`ffprobe -i \
+      "$OUTPUT_PATH.mp4" \
+      -v quiet \
+      -print_format json \
+      -show_format \
+      -show_streams \
+      -hide_banner`
+
+    FILE_SUMMARY_DURATION=`echo $DOWNLOADED_FILE_SUMMARY | jq -r .streams[0].duration`
+    FILE_SUMMARY_DURATION_INIT=${FILE_SUMMARY_DURATION%.*}
+    FILE_SUMMARY_DURATION_CALC=$(__convert_seconds $FILE_SUMMARY_DURATION_INIT)
+    FILE_SUMMARY_SIZE=`echo $DOWNLOADED_FILE_SUMMARY | jq -r .format.size`
+    FILE_SUMMARY_SIZE_CALC=$(numfmt --to=iec-i --suffix=B $FILE_SUMMARY_SIZE)
+    FILE_SUMMARY="Duration:  $FILE_SUMMARY_DURATION_CALC
+Size:      $FILE_SUMMARY_SIZE_CALC
+Path:      $HOSTNAME:$OUTPUT_PATH.mp4
+" && echo -e "\n$FILE_SUMMARY"
+  else
+    FILE_SUMMARY="File summary not available due to missing files"
+    __info "$(__yellow "File summary not available due to missing files.")"
+  fi
+
+  # Trim additional whitespace, used by email body
+  FILE_SUMMARY_TRIM=`echo "$FILE_SUMMARY" | perl -pe 's/: +/: /g'`
+
+  # Additional sleep to ensure the stream is stopped on YouTube frontend, you can also increase
+  # --hls-timeout to make sure the streamer correctly stops the stream, but the longer the
+  # --hls-timeout you set, the longer the notification you will get after the streamer actually
+  # stops his/her stream.
+  sleep 10
+}
+
+#
+# Executes
+#
+
+# Init scripts with `--init` specified
+INIT_SCRIPT="${PARAM_INIT_SCRIPT:-"false"}"
+if [ "$INIT_SCRIPT" == "true" ]; then
+  func_check_deps
+  exit 0
+fi
+
+# Print usage if no URL passed
+if [ ! -n "$1" ]; then
+  echo "Usage: $0 url [options]
+
+Run $0 --init to initialize this script.
+
+Examples:
+  Monitor specific channel, download stream when channel goes live:
+  live-dl https://www.youtube.com/channel/UC1opHUrw8rvnsadT-iGp7Cg/live
+  live-dl https://www.youtube.com/channel/UC1opHUrw8rvnsadT-iGp7Cg
+  live-dl UC1opHUrw8rvnsadT-iGp7Cg
+
+  Download specific upload, this should be a live stream or finished stream
+  live-dl https://www.youtube.com/watch?v=S3CAGeeMRvo
+  live-dl S3CAGeeMRvo
+
+  Download all uploads from a playlist
+  live-dl https://www.youtube.com/playlist?list=UU1opHUrw8rvnsadT-iGp7Cg
+
+Options:
+  --mode, -m                  Runing mode, default: download, available: metadata, notifier
+  --output, -o                Base output directory, default: ~/Downloads
+  --interval, -i              Loop interval, unit: second, default: 10
+  --skip-alias, -a            Skip creating program alias to your shell profile
+  --skip-check, -c            Skip dependency check, default: false
+  --skip-convert              Skip converting TS file to MP4
+  --skip-email                Skip sending email notification
+  --skip-slack                Skip sending Slack notification
+  --skip-telegram             Skip sending Telegram notification
+  --once, -1                  Run only once, default: false
+  --debug                     Show debug logs, default: false"
+  exit 1
+fi
+
+# Check if we have config.yml
+if ! [ -f config.yml ]; then
+  __info "$(__red "No config.yml, 'cp config.example.yml config.yml' and rerun this script.")"
+  exit 1;
+else
+  CONFIG_RAW=`cat config.yml | yq -r .`
+fi
+
+# Set default settings
+
+# Remove trailing slash for user defined directory
+# https://stackoverflow.com/a/1848456/412385
+_PARAM_BASE_DIR=${PARAM_BASE_DIR%/*}
+
+# Expand $HOME so that later I can replace `~` with escaped $HOME path in `config.yml`
+HOME_EXPANDED=$(echo "$HOME" | sed -e 's/\//\\\//g')
+
+CONFIG_MODE=`echo $CONFIG_RAW | jq -r '.config.mode | select(.!=null)'`
+CONFIG_BASE_DIR=`echo $CONFIG_RAW | jq -r .config.output | sed -e 's/~/'"$HOME_EXPANDED"'/g'`
+CONFIG_INTERVAL=`echo $CONFIG_RAW | jq -r '.config.interval | select(.!=null)'`
+CONFIG_SKIP_ALIAS=`echo $CONFIG_RAW | jq -r '.config.skip_alias | select(.!=null)'`
+CONFIG_SKIP_CONVERT=`echo $CONFIG_RAW | jq -r '.config.skip_convert | select(.!=null)'`
+CONFIG_SKIP_EMAIL=`echo $CONFIG_RAW | jq -r '.config.skip_email | select(.!=null)'`
+CONFIG_SKIP_SLACK=`echo $CONFIG_RAW | jq -r '.config.skip_slack | select(.!=null)'`
+CONFIG_SKIP_TELEGRAM=`echo $CONFIG_RAW | jq -r '.config.skip_telegram | select(.!=null)'`
+CONFIG_ONE_TIME=`echo $CONFIG_RAW | jq -r '.config.one_time | select(.!=null)'`
+CONFIG_MAILGUN_API=`echo $CONFIG_RAW | jq -r '.config.mailgun.api | select(.!=null)'`
+CONFIG_MAILGUN_DOMAIN=`echo $CONFIG_RAW | jq -r '.config.mailgun.domain | select(.!=null)'`
+CONFIG_MAILGUN_RECEIPT=`echo $CONFIG_RAW | jq -r '.config.mailgun.receipt | select(.!=null)'`
+CONFIG_SLACK_WEBHOOK=`echo $CONFIG_RAW | jq -r '.config.slack.webhook | select(.!=null)'`
+CONFIG_TELEGRAM_BOT=`echo $CONFIG_RAW | jq -r '.config.telegram.bot | select(.!=null)'`
+CONFIG_TELEGRAM_CHANNEL=`echo $CONFIG_RAW | jq -r '.config.telegram.channel | select(.!=null)'`
+
+MODE="${PARAM_MODE:-$CONFIG_MODE}"
+BASE_DIR="${_PARAM_BASE_DIR:-$CONFIG_BASE_DIR}"
+INTERVAL="${PARAM_INTERVAL:-$CONFIG_INTERVAL}"
+SKIP_ALIAS="${PARAM_SKIP_ALIAS:-$CONFIG_SKIP_ALIAS}"
+SKIP_CONVERT="${PARAM_SKIP_CONVERT:-$CONFIG_SKIP_CONVERT}"
+SKIP_EMAIL="${PARAM_SKIP_EMAIL:-$CONFIG_SKIP_EMAIL}"
+SKIP_SLACK="${PARAM_SKIP_SLACK:-$CONFIG_SKIP_SLACK}"
+SKIP_TELEGRAM="${PARAM_SKIP_TELEGRAM:-$CONFIG_SKIP_TELEGRAM}"
+ONE_TIME="${PARAM_ONE_TIME:-$CONFIG_ONE_TIME}"
+URL_INPUT="$1"
+
+# Print current variables for reference
+__info "URL (URI) to process           : ${URL_INPUT}"
+__info "Mode                           : ${MODE}"
+__info "Output base dir                : ${BASE_DIR}"
+__info "Run interval (when loop)       : ${INTERVAL}"
+__info "Skip script alias              : ${SKIP_ALIAS}"
+__info "Skip convert                   : ${SKIP_CONVERT}"
+__info "Skip email notification        : ${SKIP_EMAIL}"
+__info "Skip Slack notification        : ${SKIP_SLACK}"
+__info "Skip Telegram notification     : ${SKIP_TELEGRAM}"
+__info "One-time execution             : ${ONE_TIME}"
+
+# Process URL from user parameter
+func_create_url "$URL_INPUT"
+
+# Main loop
+while true; do
+  __info "Checking $DL_URL..."
+
+  # Monitor live streams of specific channel
+  while true; do
+    # Check if url types and live available
+    # After creating URL with func_create_url, I need to further process the URL to determine
+    # the type (video, live stream) and state (is live or not ) of the given URL
+    func_check_state "$DL_URL"
+
+    if [ "$CONTENT_STATE" == "live" ]; then
+      break
+    elif [ "$CONTENT_STATE" == "video" ]; then
+      ONE_TIME="true"
+      break
+    else
+      __debug "Not valid at the moment, continue runing"
+    fi
+
+    __info "No streaming yet, retry in ${INTERVAL}s..."
+    sleep $INTERVAL
+  done
+
+  # Get video(s) metadata
+  __info "Fetching metadata..."
+  __debug "Download platform: $DL_PLATFORM"
+  __debug "Download type: $DL_TYPE"
+  __debug "Download mode: $MODE"
+
+  #
+  # Platform: YouTube
+  #
+  if [ "$DL_PLATFORM" == "YouTube" ]; then
+    # Print summary
+    echo -e "\n$SUMMARY"
+
+    #
+    # Type: YouTube channel
+    #
+    if [ "$DL_TYPE" == "channel" ]; then
+
+      #
+      # Mode: download
+      #
+      if [ "$MODE" == "download" ]; then
+        # Send notifications
+        # https://stackoverflow.com/a/49819711/412385
+        _break=$'\n\n'
+        func_send_email "🔴 [YouTube] $UPLOADER - $FULLTITLE" "$SUMMARY_TRIM$_break$DESCRIPTION"
+        func_send_slack "start"
+        func_send_telegram "start"
+        func_download_youtube
+        func_finalize_download
+        func_send_email "⚫️ [YouTube] $UPLOADER - $FULLTITLE" "$FILE_SUMMARY_TRIM"
+
+      #
+      # Mode: metadata only
+      #
+      elif [ "$MODE" == "metadata" ]; then
+        __info "Metadata only mode, no video will be downloaded."
+        exit 0
+
+      #
+      # Mode: notifier
+      #
+      elif [ "$MODE" == "notifier" ]; then
+        func_send_slack "start"
+        func_send_telegram  "start"
+        __info "Notifier mode, no video will be downloaded, continue monitoring..."
+
+        while true; do
+          func_check_state "$DL_URL" "lazy"
+
+          if [ "$CONTENT_STATE" == "unavailable" ]; then
+            __info "Live stopped"
+            func_send_slack "stop"
+            func_send_telegram "stop"
+            break
+          fi
+
+          __info "Still streaming, retry in ${INTERVAL}s..."
+          sleep $INTERVAL
+        done
+
+      #
+      # Mode: unknown
+      #
+      else
+        __info "$(__red "Unknown mode, check your config")"
+        exit 1
+      fi
+
+    #
+    # Type: YouTube video
+    #
+    elif [ "$DL_TYPE" == "video" ]; then
+
+      if [ "$MODE" == "download" ]; then
+        func_download_youtube
+        func_finalize_download
+        exit 0
+      else
+        __info "Metadata only mode, no video will be downloaded."
+        exit 0
+      fi
+
+    #
+    # Type: YouTube playlist
+    #
+    elif [ "$DL_TYPE" == "playlist" ]; then
+      __info "Type: YouTube playlist"
+
+    #
+    # Type: Unknown
+    #
+    else
+      __info "Type: Unknown"
+    fi
+
+  elif [ "$DL_PLATFORM" == "bilibili" ]; then
+    __info "Download platform: Bilibili"
+  else
+    __info "Download platform: Unknown"
+  fi
+
+  # Break current loop if only run once
+  [ "$ONE_TIME" == "true" ] && break
+done
