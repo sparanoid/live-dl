@@ -1,0 +1,138 @@
+config:
+  # Runing mode
+  #
+  # - download: default mode, monitor URL and download when available
+  # - metadata: download JSON metadata only
+  # - notifier: only send notifications
+  mode: download
+  # There's no need to quote or escape your path, examples:
+  #
+  # - ~/Downlaods
+  # - ~/Files/VTuber Videos
+  # - ~/My Videos/Live Recordings
+  #
+  # All examples above should work
+  output: ~/Downloads/VTuber Recordings
+  interval: 10
+  skip_alias: false
+  skip_check: false
+  skip_convert: false
+  skip_email: false
+  skip_slack: false
+  skip_telegram: false
+  one_time: false
+  timezone: Asia/Tokyo
+  mailgun:
+    # Find your private API key at https://app.mailgun.com/app/account/security/api_keys
+    api: key-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    domain: mail.example.com
+    receipt: me@example.com
+  slack:
+    # Create your webhook at https://slack.com/apps/A0F7XDUAZ-incoming-webhooks
+    webhook: https://hooks.slack.com/services/
+  telegram:
+    # Obtian your bot API from @BotFather
+    bot: 000000000:xxxxxxxxx
+    # Get channel ID via:
+    # https://api.telegram.org/bot<API-access-token>/getUpdates?offset=0
+    channel: 0000000000000
+
+map:
+  - name: Sparanoid
+    mode: monitor
+    youtube: https://www.youtube.com/channel/UCxRuOqAAVo-f516Gygjh_wA
+    bilibili: https://live.bilibili.com/456117
+    telegram: -1001437419680
+    timezone: America/Los_Angeles
+
+  - name: 湊あくあ
+    mode: monitor
+    twitter: minatoaqua
+    youtube: https://www.youtube.com/channel/UC1opHUrw8rvnsadT-iGp7Cg
+    bilibili: https://live.bilibili.com/14917277
+    telegram: -1001452928607
+    tiktok: minatoaqua
+
+  - name: 神楽めあ
+    mode: monitor
+    twitter: kaguramea_vov
+    youtube: https://www.youtube.com/channel/UCWCc8tO-uUl_7SJXIKJACMw
+    bilibili: https://live.bilibili.com/12235923
+    twitcasting: kaguramea_vov
+    openrec: KaguraMea
+    telegram: -1001453708263
+
+  - name: めあちゃんねるっ!
+    youtube: https://www.youtube.com/channel/UCu5eCcfs67GkeCFbhsMrEjA
+    telegram: -1001453708263
+
+  - name: 水科葵
+    youtube: https://www.youtube.com/channel/UCVFpIqGoTmFaoMmyFPRYrKA
+    telegram: -1001427508895
+
+  - name: 潤羽るしあ
+    mode: monitor
+    youtube: https://www.youtube.com/channel/UCl_gCybOJRIgOXw6Qb4qJzQ
+    telegram: -1001448291041
+
+  - name: 白百合リリィ
+    mode: monitor
+    youtube: https://www.youtube.com/channel/UCl-3q6t6zdZwgIsFZELb7Zg
+    telegram: -1001437419680
+
+  - name: 百鬼あやめ
+    youtube: https://www.youtube.com/channel/UC7fk0CB07ly8oSl0aqKkqFg
+    telegram: -1001437419680
+
+  - name: 白上フブキ
+    mode: monitor
+    youtube: https://www.youtube.com/channel/UCdn5BQ06XqgXoAxIhbqw5Rg
+    telegram: -1001396390139
+
+  - name: 有栖マナ
+    youtube: https://www.youtube.com/channel/UCIaC5td9nGG6JeKllWLwFLA
+    bilibili: https://space.bilibili.com/3149619
+    twitch: https://www.twitch.tv/alicemana_v
+
+  - name: 音俣るか
+    youtube: https://www.youtube.com/channel/UCNSr_pgMH3in2d0RGtcdEEg
+    bilibili: https://space.bilibili.com/406548031
+
+  - name: 物述有栖
+    youtube: https://www.youtube.com/channel/UCt0clH12Xk1-Ej5PXKGfdPA
+    bilibili: https://space.bilibili.com/434565011
+
+  - name: 宗谷いちか
+    youtube: https://www.youtube.com/channel/UC2kyQhzGOB-JPgcQX9OMgEw
+
+  - name: 癒月ちょこ
+    youtube: https://www.youtube.com/channel/UC1suqwovbL1kzsoaZgFZLKg
+
+  - name: 乙女おと
+    youtube: https://www.youtube.com/channel/UCvEX2UICvFAa_T6pqizC20g
+
+  - name: 天宮こころ
+    youtube: https://www.youtube.com/channel/UCkIimWZ9gBJRamKF0rmPU8w
+
+  - name: 夜空メルチャンネル
+    youtube: https://www.youtube.com/channel/UCD8HOxPs4Xvsm8H0ZxXGiBw
+
+  - name: かぐらなな
+    youtube: https://www.youtube.com/channel/UCbfv8uuUXt3RSJGEwxny5Rw
+
+  - name: 赤井はあと
+    youtube: https://www.youtube.com/channel/UC1CfXB_kRs3C-zaeTG3oGyg
+    telegram: -1001437419680
+
+  - name: 笹木咲
+    youtube: https://www.youtube.com/channel/UCoztvTULBYd3WmStqYeoHcA
+    telegram: -1001437419680
+
+  - name: 不知火フレア
+    youtube: https://www.youtube.com/channel/UCvInZx9h3jC2JzsIzoOebWg
+
+  - name: 樋口楓
+    youtube: https://www.youtube.com/channel/UCsg-YqdqQ-KFF0LNk23BY4A
+
+  - name: 美波七海
+    youtube: https://www.youtube.com/channel/UCrwJvtphcyux30pAgoX68jA
