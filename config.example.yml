@@ -17,6 +17,7 @@ config:
   skip_alias: false
   skip_check: false
   skip_convert: false
+  skip_metadata: false
   skip_email: false
   skip_slack: false
   skip_telegram: false

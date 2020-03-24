@@ -143,6 +143,10 @@ while [ $# -gt 0 ]; do
       PARAM_SKIP_CONVERT=true
       shift
       ;;
+    --skip-metadata)
+      PARAM_SKIP_METADATA=true
+      shift
+      ;;
     --skip-email)
       PARAM_SKIP_EMAIL=true
       shift
@@ -1124,42 +1128,46 @@ function func_finalize_download() {
     rm -f "$OUTPUT_PATH.ts"
   fi
 
-  # Write metadata to MP4 (will override existing with -y option)
-  if [ -f "$OUTPUT_PATH.mp4" ]; then
-    __info "Writing metadata"
-    ffmpeg -i "$OUTPUT_PATH.mp4" -y \
-      -codec copy \
-      -metadata title="$FULLTITLE" \
-      -metadata artist="$UPLOADER" \
-      -metadata date="$UPLOAD_DATE" \
-      -metadata description="$DESCRIPTION" \
-      -metadata comment="$DESCRIPTION" \
-      "$OUTPUT_PATH-metadata.mp4" >> "$OUTPUT_PATH.log" 2>&1
-    rm -f "$OUTPUT_PATH.mp4" && mv "$OUTPUT_PATH-metadata.mp4" "$OUTPUT_PATH.mp4"
-  else
-    __info "$(__yellow "Output file not exists, skip writing metadata.")"
-  fi
+  if [ ! "$SKIP_METADATA" ]; then
+    __info "Trying to write metadata and artwork"
 
-  # Writing artwork cover
-  # I have to emabed artwork and metadata in two separate steps be cause FFmpeg can't pipe these
-  # two steps into one. And AtomicParsley also doesn't support medatada in-file writing.
-  if [ -f "$OUTPUT_PATH.mp4" ]; then
-    __info "Writing artwork"
-
-    # Check if artwork avaiable
-    if [ -f "$OUTPUT_PATH.jpg" ]; then
+    # Write metadata to MP4 (will override existing with -y option)
+    if [ -f "$OUTPUT_PATH.mp4" ]; then
+      __info "Writing metadata"
       ffmpeg -i "$OUTPUT_PATH.mp4" -y \
-        -i "$OUTPUT_PATH.jpg" \
-        -map 1 -map 0 \
         -codec copy \
-        -disposition:0 attached_pic \
-        "$OUTPUT_PATH-artwork.mp4" >> "$OUTPUT_PATH.log" 2>&1
-      rm -f "$OUTPUT_PATH.mp4" && mv "$OUTPUT_PATH-artwork.mp4" "$OUTPUT_PATH.mp4"
+        -metadata title="$FULLTITLE" \
+        -metadata artist="$UPLOADER" \
+        -metadata date="$UPLOAD_DATE" \
+        -metadata description="$DESCRIPTION" \
+        -metadata comment="$DESCRIPTION" \
+        "$OUTPUT_PATH-metadata.mp4" >> "$OUTPUT_PATH.log" 2>&1
+      rm -f "$OUTPUT_PATH.mp4" && mv "$OUTPUT_PATH-metadata.mp4" "$OUTPUT_PATH.mp4"
     else
-      __info "$(__yellow "Artwork missing, this is a rare case, please report at my GitHub.")"
+      __info "$(__yellow "Output file not exists, skip writing metadata.")"
     fi
-  else
-    __info "$(__yellow "Output file not exists, skip embedding artwork.")"
+
+    # Writing artwork cover
+    # I have to emabed artwork and metadata in two separate steps be cause FFmpeg can't pipe these
+    # two steps into one. And AtomicParsley also doesn't support medatada in-file writing.
+    if [ -f "$OUTPUT_PATH.mp4" ]; then
+      __info "Writing artwork"
+
+      # Check if artwork avaiable
+      if [ -f "$OUTPUT_PATH.jpg" ]; then
+        ffmpeg -i "$OUTPUT_PATH.mp4" -y \
+          -i "$OUTPUT_PATH.jpg" \
+          -map 1 -map 0 \
+          -codec copy \
+          -disposition:0 attached_pic \
+          "$OUTPUT_PATH-artwork.mp4" >> "$OUTPUT_PATH.log" 2>&1
+        rm -f "$OUTPUT_PATH.mp4" && mv "$OUTPUT_PATH-artwork.mp4" "$OUTPUT_PATH.mp4"
+      else
+        __info "$(__yellow "Artwork missing, this is a rare case, please report at my GitHub.")"
+      fi
+    else
+      __info "$(__yellow "Output file not exists, skip embedding artwork.")"
+    fi
   fi
 
   # Get file summary for later use
@@ -1263,6 +1271,7 @@ CONFIG_BASE_DIR=`echo $CONFIG_RAW | jq -r .config.output | sed -e 's/~/'"$HOME_E
 CONFIG_INTERVAL=`echo $CONFIG_RAW | jq -r '.config.interval | select(.!=null)'`
 CONFIG_SKIP_ALIAS=`echo $CONFIG_RAW | jq -r '.config.skip_alias | select(.!=null)'`
 CONFIG_SKIP_CONVERT=`echo $CONFIG_RAW | jq -r '.config.skip_convert | select(.!=null)'`
+CONFIG_SKIP_METADATA=`echo $CONFIG_RAW | jq -r '.config.skip_metadata | select(.!=null)'`
 CONFIG_SKIP_EMAIL=`echo $CONFIG_RAW | jq -r '.config.skip_email | select(.!=null)'`
 CONFIG_SKIP_SLACK=`echo $CONFIG_RAW | jq -r '.config.skip_slack | select(.!=null)'`
 CONFIG_SKIP_TELEGRAM=`echo $CONFIG_RAW | jq -r '.config.skip_telegram | select(.!=null)'`
@@ -1279,6 +1288,7 @@ BASE_DIR="${_PARAM_BASE_DIR:-$CONFIG_BASE_DIR}"
 INTERVAL="${PARAM_INTERVAL:-$CONFIG_INTERVAL}"
 SKIP_ALIAS="${PARAM_SKIP_ALIAS:-$CONFIG_SKIP_ALIAS}"
 SKIP_CONVERT="${PARAM_SKIP_CONVERT:-$CONFIG_SKIP_CONVERT}"
+SKIP_METADATA="${PARAM_SKIP_METADATA:-$CONFIG_SKIP_METADATA}"
 SKIP_EMAIL="${PARAM_SKIP_EMAIL:-$CONFIG_SKIP_EMAIL}"
 SKIP_SLACK="${PARAM_SKIP_SLACK:-$CONFIG_SKIP_SLACK}"
 SKIP_TELEGRAM="${PARAM_SKIP_TELEGRAM:-$CONFIG_SKIP_TELEGRAM}"
@@ -1292,6 +1302,7 @@ __info "Output base dir                : ${BASE_DIR}"
 __info "Run interval (when loop)       : ${INTERVAL}"
 __info "Skip script alias              : ${SKIP_ALIAS}"
 __info "Skip convert                   : ${SKIP_CONVERT}"
+__info "Skip embedding metadata        : ${SKIP_METADATA}"
 __info "Skip email notification        : ${SKIP_EMAIL}"
 __info "Skip Slack notification        : ${SKIP_SLACK}"
 __info "Skip Telegram notification     : ${SKIP_TELEGRAM}"
