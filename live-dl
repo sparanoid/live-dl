@@ -399,7 +399,7 @@ function func_check_state() {
   local _url=$1
   local _mode=$2
 
-  __debug "start func_check_sate"
+  __debug "start func_check_state"
 
   # Assume it's not a valid page, I use a custom state `invalid` here as initial state
   CONTENT_STATE="invalid"
@@ -480,7 +480,7 @@ function func_check_state() {
 
           # Check if the streamer is streaming privately.
           if [ -z "$STREAMABILITY" ]; then
-            __info "$(__yellow "/live redirects to channel home, maybe is streaming privately!")"
+            __info "$(__yellow "/live redirects to /, event mode or streaming privately?")"
           fi
         else
           CONTENT_STATE="video"
@@ -539,7 +539,7 @@ function func_check_state() {
 
   # else
   #   __info "$(__yellow "Not a valid video page!")"
-  #   __info "You may get this warning due to internet interruption, continue runing"
+  #   __info "You may get this warning due to internet interruption, continue running"
 
   #   # NOTE: Although this is the natural logic to exit the program if we can't find specific
   #   # element on this page that means it's not a valid video page. But in some rare cases, the
@@ -558,7 +558,7 @@ function func_check_state() {
   # - Accurate live state detection
   # Cons:
   # - Slow, youtube-dl will fire API requests to get more info it need to download videos
-  # - Your IP can get banned easily when runing in download or notifier mode due to large amount of
+  # - Your IP can get banned easily when running in download or notifier mode due to large amount of
   #   API requests.
   if [ "$CONTENT_STATE" != "invalid" ]; then
 
@@ -1077,7 +1077,9 @@ function func_download_youtube() {
         --external-downloader aria2c \
         --external-downloader-args '-j 16 -s 16 -x 16 -k 1M --retry-wait 10 --max-tries 10' \
         -f 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best' \
-        --all-subs \
+        --write-auto-sub \
+        --write-sub \
+        --sub-lang en,zh-Hans,zh-Hant,ja \
         --sub-format best \
         --embed-subs \
         --force-ipv4 \
@@ -1090,9 +1092,10 @@ function func_download_youtube() {
         --external-downloader aria2c \
         --external-downloader-args '-j 16 -s 16 -x 16 -k 1M --retry-wait 10 --max-tries 10' \
         -f 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best' \
-        --all-subs \
+        --write-auto-sub \
+        --write-sub \
+        --sub-lang en,zh-Hans,zh-Hant,ja \
         --sub-format best \
-        --embed-subs \
         --force-ipv4 \
         --retries 30 \
         -o "${OUTPUT_BASE}/%(upload_date)s %(title)s (%(id)s).%(ext)s" \
@@ -1224,7 +1227,7 @@ Examples:
   live-dl https://www.youtube.com/playlist?list=UU1opHUrw8rvnsadT-iGp7Cg
 
 Options:
-  --mode, -m                  Runing mode, default: download, available: metadata, notifier
+  --mode, -m                  Running mode, default: download, available: metadata, notifier
   --output, -o                Base output directory, default: ~/Downloads
   --interval, -i              Loop interval, unit: second, default: 10
   --skip-alias, -a            Skip creating program alias to your shell profile
@@ -1314,7 +1317,7 @@ while true; do
       ONE_TIME="true"
       break
     else
-      __debug "Not valid at the moment, continue runing"
+      __debug "Not valid at the moment, continue running"
     fi
 
     __info "No streaming yet, retry in ${INTERVAL}s..."
