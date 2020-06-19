@@ -23,9 +23,15 @@ config:
   skip_telegram: false
   one_time: false
   timezone: Asia/Tokyo
+  email_provider: ses
   mailgun:
     # Find your private API key at https://app.mailgun.com/app/account/security/api_keys
     api: key-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    domain: mail.example.com
+    receipt: me@example.com
+  ses:
+    access: AKxxxxxxxxxxxxxxxxxx
+    secret: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
     domain: mail.example.com
     receipt: me@example.com
   slack:

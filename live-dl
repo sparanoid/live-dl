@@ -643,16 +643,51 @@ function func_send_email() {
 
   if [ "$SKIP_EMAIL" != "true" ]; then
 
-    if [ "$CONFIG_MAILGUN_API" == "key-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" ]; then
-      __info "$(__yellow "No Mailgun credentials found, skip sending email notification")"
-    else
-      __info "Sending email notification..."
-      curl -s --user "api:$CONFIG_MAILGUN_API" \
-        https://api.mailgun.net/v3/"$CONFIG_MAILGUN_DOMAIN"/messages \
-        -F from="Livestream Downloader (live-dl) <live-dl@$CONFIG_MAILGUN_DOMAIN>" \
-        -F to="$CONFIG_MAILGUN_RECEIPT" \
-        -F subject="$_title" \
-        -F text="$_content" >> "$OUTPUT_PATH.log" 2>&1
+    if [ "$CONFIG_EMAIL_PROVIDER" == "mailgun" ]; then
+
+      if [ "$CONFIG_MAILGUN_API" == "key-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" ]; then
+        __info "$(__yellow "No Mailgun credentials found, skip sending email notification")"
+      else
+        __info "Sending email notification..."
+        curl -s --user "api:$CONFIG_MAILGUN_API" \
+          https://api.mailgun.net/v3/"$CONFIG_MAILGUN_DOMAIN"/messages \
+          -F from="Livestream Downloader (live-dl) <live-dl@$CONFIG_MAILGUN_DOMAIN>" \
+          -F to="$CONFIG_MAILGUN_RECEIPT" \
+          -F subject="$_title" \
+          -F text="$_content" >> "$OUTPUT_PATH.log" 2>&1
+      fi
+    fi
+
+    if [ "$CONFIG_EMAIL_PROVIDER" == "ses" ]; then
+
+      if [ "$CONFIG_SES_ACCESS" == "AKxxxxxxxxxxxxxxxxxx" ]; then
+        __info "$(__yellow "No AWS SES credentials found, skip sending email notification")"
+      else
+        __info "Sending email notification..."
+        local FROM="Livestream Downloader (live-dl) <live-dl@$CONFIG_SES_DOMAIN>"
+
+        local ses_date="$(date -R)"
+        # base64 different behavior alert:
+        # https://stackoverflow.com/a/46464081/412385
+        # Just use `base64` or `base64 -b 0` on macOS, on other platforms, use:
+        # `base64 -w 0`
+        local ses_signature="$(echo -n "$ses_date" | openssl dgst -sha256 -hmac "$CONFIG_SES_SECRET" -binary | base64)"
+        local ses_auth_header="X-Amzn-Authorization: AWS3-HTTPS AWSAccessKeyId=$CONFIG_SES_ACCESS, Algorithm=HmacSHA256, Signature=$ses_signature"
+        local ses_endpoint="https://email.us-east-1.amazonaws.com/"
+        local ses_action="Action=SendEmail"
+        local ses_source="Source=$FROM"
+        local ses_to="Destination.ToAddresses.member.1=$TO"
+        local ses_subject="Message.Subject.Data=$_title"
+        local ses_message="Message.Body.Text.Data=$_content"
+
+        curl -X POST -H "Date: $ses_date" -H "$ses_auth_header" \
+          --data-urlencode "$ses_message" \
+          --data-urlencode "$ses_to" \
+          --data-urlencode "$ses_source" \
+          --data-urlencode "$ses_action" \
+          --data-urlencode "$ses_subject" \
+          "$ses_endpoint" >/dev/null 2>&1
+      fi
     fi
   fi
 }
@@ -1058,7 +1093,7 @@ function func_download_youtube() {
       --hls-live-restart \
       --hls-segment-threads 10 \
       --hls-segment-timeout 120 \
-      --hls-segment-attempts 150 \
+      --hls-segment-attempts 300 \
       --hls-segment-ignore-names preloading \
       --hls-playlist-reload-attempts 30 \
       --hls-live-edge 5 \
@@ -1276,9 +1311,14 @@ CONFIG_SKIP_EMAIL=`echo $CONFIG_RAW | jq -r '.config.skip_email | select(.!=null
 CONFIG_SKIP_SLACK=`echo $CONFIG_RAW | jq -r '.config.skip_slack | select(.!=null)'`
 CONFIG_SKIP_TELEGRAM=`echo $CONFIG_RAW | jq -r '.config.skip_telegram | select(.!=null)'`
 CONFIG_ONE_TIME=`echo $CONFIG_RAW | jq -r '.config.one_time | select(.!=null)'`
+CONFIG_EMAIL_PROVIDER=`echo $CONFIG_RAW | jq -r '.config.email_provider | select(.!=null)'`
 CONFIG_MAILGUN_API=`echo $CONFIG_RAW | jq -r '.config.mailgun.api | select(.!=null)'`
 CONFIG_MAILGUN_DOMAIN=`echo $CONFIG_RAW | jq -r '.config.mailgun.domain | select(.!=null)'`
 CONFIG_MAILGUN_RECEIPT=`echo $CONFIG_RAW | jq -r '.config.mailgun.receipt | select(.!=null)'`
+CONFIG_SES_ACCESS=`echo $CONFIG_RAW | jq -r '.config.ses.access | select(.!=null)'`
+CONFIG_SES_SECRET=`echo $CONFIG_RAW | jq -r '.config.ses.secret | select(.!=null)'`
+CONFIG_SES_DOMAIN=`echo $CONFIG_RAW | jq -r '.config.ses.domain | select(.!=null)'`
+CONFIG_SES_RECEIPT=`echo $CONFIG_RAW | jq -r '.config.ses.receipt | select(.!=null)'`
 CONFIG_SLACK_WEBHOOK=`echo $CONFIG_RAW | jq -r '.config.slack.webhook | select(.!=null)'`
 CONFIG_TELEGRAM_BOT=`echo $CONFIG_RAW | jq -r '.config.telegram.bot | select(.!=null)'`
 CONFIG_TELEGRAM_CHANNEL=`echo $CONFIG_RAW | jq -r '.config.telegram.channel | select(.!=null)'`
@@ -1306,6 +1346,7 @@ __info "Skip embedding metadata        : ${SKIP_METADATA}"
 __info "Skip email notification        : ${SKIP_EMAIL}"
 __info "Skip Slack notification        : ${SKIP_SLACK}"
 __info "Skip Telegram notification     : ${SKIP_TELEGRAM}"
+__info "Email provider                 : ${CONFIG_EMAIL_PROVIDER}"
 __info "One-time execution             : ${ONE_TIME}"
 
 # Process URL from user parameter
