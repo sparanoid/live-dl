@@ -16,7 +16,7 @@ Download live streams from YouTube.
 - Writing streamer metadata (author/channel name, description, year) via FFmpeg
 - Embed YouTube thumbnail as video cover via ~~AtomicParsley~~ (now handled by FFmpeg)
 - Download subtitles if available
-- Keywords filter: only download streams that match specific keywords in title
+- Keywords filter: only download streams that match specific keywords in title (WIP)
 - Convert TS to MP4 after downloading
 
 ## Dependencies
