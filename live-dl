@@ -1269,7 +1269,7 @@ fi
 if [ ! -n "$1" ]; then
   echo "Usage: $0 url [options]
 
-Run $0 --init to initialize this script.
+Run $0 --init to initialize this script and download required dependencies.
 
 Examples:
   Monitor specific channel, download stream when channel goes live:
@@ -1277,17 +1277,18 @@ Examples:
   live-dl https://www.youtube.com/channel/UC1opHUrw8rvnsadT-iGp7Cg
   live-dl UC1opHUrw8rvnsadT-iGp7Cg
 
-  Download specific upload, this should be a live stream or finished stream
+  Download specific upload, this can be a live stream, finished stream or normal video:
   live-dl https://www.youtube.com/watch?v=S3CAGeeMRvo
   live-dl S3CAGeeMRvo
 
-  Download all uploads from a playlist
+  Download all uploads from a playlist (unstable):
   live-dl https://www.youtube.com/playlist?list=UU1opHUrw8rvnsadT-iGp7Cg
 
 Options:
   --mode, -m                  Running mode, default: download, available: metadata, notifier
   --output, -o                Base output directory, default: ~/Downloads
-  --interval, -i              Loop interval, unit: second, default: 10
+  --interval, -i              Loop interval, unit: second, default: 10.
+                              Avoid setting this value too low or your IP may get banned by YouTube
   --skip-alias, -a            Skip creating program alias to your shell profile
   --skip-check, -c            Skip dependency check, default: false
   --skip-convert              Skip converting TS file to MP4
@@ -1295,7 +1296,7 @@ Options:
   --skip-slack                Skip sending Slack notification
   --skip-telegram             Skip sending Telegram notification
   --once, -1                  Run only once, default: false
-  --debug                     Show debug logs, default: false"
+  --debug                     Show debug output (aka. verbose mode), default: false"
   exit 1
 fi
 

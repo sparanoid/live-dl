@@ -30,7 +30,7 @@ Download live streams from YouTube.
 - youtube-dl
 - yq (python-yq)
 
-Tested on macOS 10.14, should be working on RHEL/CentOS 7 and Ubuntu.
+Tested on macOS 10.15, should be working on RHEL/CentOS 7 and Ubuntu.
 
 ## Usage
 
