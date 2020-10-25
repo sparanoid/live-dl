@@ -962,7 +962,7 @@ function func_process_youtube_metadata() {
   DISLIKE_COUNT=$(echo "$METADATA" | jq -r '.dislike_count')
   AVERAGE_RATING=$(echo "$METADATA" | jq -r '.average_rating')
 
-  # Filename (without path)
+  # Filename (without path and file extension)
   FILENAME=$(echo "$METADATA" | jq -r '._filename' | sed -e 's/.mp4//' | sed -e 's/.webm//')
 }
 
@@ -1023,6 +1023,13 @@ function func_finalize_vars() {
 
   # Output base without filename
   OUTPUT_BASE="$BASE_DIR/$FILENAME_BASE"
+
+  # Apply additional timestamp if file already exists
+  if ([ -f "$OUTPUT_BASE/$FILENAME.ts" ] || [ -f "$OUTPUT_BASE/$FILENAME.mp4" ]); then
+    local _time_start=$(date +"%H.%M.%S")
+    FILENAME="$FILENAME-$_time_start"
+    __info "$(__yellow "Filename already exists, using $FILENAME")"
+  fi
 
   # Full output dir
   OUTPUT_PATH="$OUTPUT_BASE/$FILENAME"
