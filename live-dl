@@ -426,7 +426,18 @@ function func_check_state() {
   # - Can get wrong live state due to page caching, network interrupts, etc.
   local _body=$(curl -s --compressed -H "User-Agent: $USER_AGENT" "$_url")
 
-  METADATA_CURL=`echo "$_body" | grep '"ytInitialPlayerResponse"' | perl -pe 's/^.*?({".*}).*/\1/g' | jq -r .`
+  # Extract metadata from fetched page
+  METADATA_CURL_RAW=`echo "$_body" | grep '"ytInitialPlayerResponse"'`
+
+  # NOTE: Oct 25, 2020
+  # Recently YouTube changes its page to returns `null` for `ytInitialPlayerResponse` when the
+  # channel is not streaming. This makes me easier to tell whether it's live or not.
+  if [[ "$METADATA_CURL_RAW" =~ 'window["ytInitialPlayerResponse"] = null' ]]; then
+    METADATA_CURL="{}"
+    __debug "ytInitialPlayerResponse returns null"
+  else
+    METADATA_CURL=`echo "$METADATA_CURL_RAW" | perl -pe 's/^.*?({".*}).*/\1/g' | jq -r .`
+  fi
 
   # Check if returns nothing
   if [ ! -z "$METADATA_CURL" ]; then
