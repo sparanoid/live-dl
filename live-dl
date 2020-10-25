@@ -470,6 +470,14 @@ function func_check_state() {
     UPLOADER=$(echo "$METADATA_CURL" | jq -r '.videoDetails.author')
     CHANNEL_ID=$(echo "$METADATA_CURL" | jq -r '.videoDetails.channelId')
 
+    # NOTE: Oct 25, 2020
+    # With recent changes of YouTube API, you cannot get live JSON from a /live channel URL.
+    # This causes empty response during youtube-dl second check. So I redirect channel page check to
+    # video page check after I got the specific video ID.
+    if ([ "$DL_TYPE" == "channel" ] && [ "$DL_PLATFORM" == "YouTube" ]); then
+      _url="https://www.youtube.com/watch?v=$VIDEO_ID"
+    fi
+
     # If I got `isLive: true` in first check, let me assume it's live but I can't trust it so I
     # will do a secound check using youtube-dl later with this flag.
     if [ "$IS_LIVE" == "true" ]; then
@@ -574,7 +582,7 @@ function func_check_state() {
       ([ "$CONTENT_STATE" == "offline" ] && [ "$_mode" == "lazy" ])
     then
       __info "Re-checking via youtube-dl..."
-      METADATA=`youtube-dl --ignore-config --no-playlist --playlist-items 1 \
+      METADATA=`youtube-dl --ignore-config --no-playlist --playlist-items 0 \
         --skip-download --print-json --force-ipv4 --referer 'https://www.youtube.com/feed/subscriptions' \
         -o '%(upload_date)s %(title)s (%(id)s).%(ext)s' \
         "$_url" 2>&1`
