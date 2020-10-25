@@ -574,7 +574,7 @@ function func_check_state() {
       ([ "$CONTENT_STATE" == "offline" ] && [ "$_mode" == "lazy" ])
     then
       __info "Re-checking via youtube-dl..."
-      METADATA=`youtube-dl --ignore-config --no-playlist --playlist-items 0 \
+      METADATA=`youtube-dl --ignore-config --no-playlist --playlist-items 1 \
         --skip-download --print-json --force-ipv4 --referer 'https://www.youtube.com/feed/subscriptions' \
         -o '%(upload_date)s %(title)s (%(id)s).%(ext)s' \
         "$_url" 2>&1`
