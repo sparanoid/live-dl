@@ -14,7 +14,6 @@ config:
   # All examples above should work
   output: ~/Downloads/VTuber Recordings
   interval: 10
-  skip_alias: false
   skip_check: false
   skip_convert: false
   skip_metadata: false
