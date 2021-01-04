@@ -470,7 +470,15 @@ function func_check_state() {
     # Get upcoming time when available
     # This key will be missing if no upcoming events available
     UPCOMING_TIME=$(echo "$METADATA_CURL" | jq -r '.playabilityStatus.liveStreamability.liveStreamabilityRenderer.offlineSlate.liveStreamOfflineSlateRenderer.scheduledStartTime | select(.!=null)')
-    __debug "Scheduled Start Time: $UPCOMING_TIME"
+    if [ ! -z "$UPCOMING_TIME" ]; then
+      if [[ "$OSTYPE" == "darwin"* ]]; then
+        local _date_calc=`date -r $UPCOMING_TIME`
+      else
+        local _date_calc=`date -d @$UPCOMING_TIME`
+      fi
+
+      __debug "Scheduled Time: $_date_calc ($UPCOMING_TIME)"
+    fi
 
     # Get some metadata first, I will retrieve more later using youtube-dl
     VIDEO_ID=$(echo "$METADATA_CURL" | jq -r '.videoDetails.videoId')
