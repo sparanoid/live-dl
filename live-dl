@@ -60,7 +60,7 @@
 #
 # Variables
 #
-USER_AGENT="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.120 Safari/537.36"
+USER_AGENT="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36"
 IMAGE_PROXY_BASE="https://experiments.sparanoid.net/imageproxy/"
 
 #
@@ -427,17 +427,14 @@ function func_check_state() {
   local _body=$(curl -s --compressed -H "User-Agent: $USER_AGENT" "$_url")
 
   # Extract metadata from fetched page
-  METADATA_CURL_RAW=`echo "$_body" | grep '"ytInitialPlayerResponse"'`
+  METADATA_CURL_RAW=`echo "$_body" | grep 'ytInitialPlayerResponse' | grep '<script' | grep 'responseContext'`
 
-  # NOTE: Oct 25, 2020
-  # Recently YouTube changes its page to returns `null` for `ytInitialPlayerResponse` when the
-  # channel is not streaming. This makes me easier to tell whether it's live or not.
-  if [[ "$METADATA_CURL_RAW" =~ 'window["ytInitialPlayerResponse"] = null' ]]; then
-    METADATA_CURL="{}"
-    __debug "ytInitialPlayerResponse returns null"
-  else
-    METADATA_CURL=`echo "$METADATA_CURL_RAW" | perl -pe 's/^.*?({".*}).*/\1/g' | jq -r .`
-  fi
+  # Match only JSON part
+  # https://regex101.com/r/QiyZE2/3
+  #
+  # Debug commmand if YouTube changes its HTML structure in the future:
+  # $ curl -s --compressed -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36" 'https://www.youtube.com/watch?v=j2z06YUbulk' | grep 'ytInitialPlayerResponse' | grep '<script' | grep 'responseContext' | perl -pe 's/^.*?ytInitialPlayerResponse = ({".*]});var .*/\1/g' | jq -r .
+  METADATA_CURL=`echo "$METADATA_CURL_RAW" | perl -pe 's/^.*?ytInitialPlayerResponse = ({".*]});var .*/\1/g' | jq -r .`
 
   # Check if returns nothing
   if [ ! -z "$METADATA_CURL" ]; then
@@ -480,6 +477,10 @@ function func_check_state() {
     DESCRIPTION=$(echo "$METADATA_CURL" | jq -r '.videoDetails.shortDescription')
     UPLOADER=$(echo "$METADATA_CURL" | jq -r '.videoDetails.author')
     CHANNEL_ID=$(echo "$METADATA_CURL" | jq -r '.videoDetails.channelId')
+
+    # Print basic metadata for reference
+    __debug "Channel: $UPLOADER"
+    __debug "Title: $FULLTITLE"
 
     # NOTE: Oct 25, 2020
     # With recent changes of YouTube API, you cannot get live JSON from a /live channel URL.
