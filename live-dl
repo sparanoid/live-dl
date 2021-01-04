@@ -1071,9 +1071,9 @@ function func_finalize_vars() {
   # (200 HTTP code) even if the streamer set a smaller thumbnail that is only suitable at a smaller
   # size (hqdefault.jpg)
   #
-  # Another scenario is that that the streamer set an upcoming event with thumbnail-A, and she/he
-  # later changes it to another (thumbnail-B) when stream goes live, `maxresdefault_live.jpg` seems
-  # always returns thumbnail-A while `maxresdefault.jpg` can get the correct thumbnail-B.
+  # Another scenario is that the streamer set an upcoming event with thumbnail-A. But she/he later
+  # changes it to another (thumbnail-B) when stream goes live. `maxresdefault_live.jpg` seems always
+  # returns thumbnail-A while `maxresdefault.jpg` can get the correct thumbnail-B.
   #
   # First download thumbnail provided from youtube-dl
   THUMBNAIL_CALC="$THUMBNAIL"
@@ -1310,12 +1310,12 @@ Options:
   --output, -o                Base output directory, default: ~/Downloads
   --interval, -i              Loop interval, unit: second, default: 10.
                               Avoid setting this value too low or your IP may get banned by YouTube
-  --skip-alias, -a            Skip creating program alias to your shell profile
   --skip-check, -c            Skip dependency check, default: false
   --skip-convert              Skip converting TS file to MP4
   --skip-email                Skip sending email notification
   --skip-slack                Skip sending Slack notification
   --skip-telegram             Skip sending Telegram notification
+  --create-alias, -a          Create program alias to your current shell profile
   --once, -1                  Run only once, default: false
   --debug                     Show debug output (aka. verbose mode), default: false"
   exit 1
