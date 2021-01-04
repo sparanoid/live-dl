@@ -135,8 +135,8 @@ while [ $# -gt 0 ]; do
       PARAM_DEBUG=true
       shift
       ;;
-    -a|--skip-alias)
-      PARAM_SKIP_ALIAS=true
+    -a|--create-alias)
+      PARAM_CREATE_ALIAS=true
       shift
       ;;
     --skip-convert)
@@ -310,16 +310,17 @@ function func_check_deps() {
       __info "No platform/architecture supported, please install it manually."
     fi
   fi
-
-  # Check if we need to create alias
-  if [ ! "$SKIP_ALIAS" ]; then
-    __info "Creating alias..."
-    _profile="$(func_detect_profile)"
-    _cwd="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-    _alias="alias live-dl='$_cwd/live-dl'"
-    grep -qxF "$_alias" "$_profile" || echo "$_alias" >> "$_profile"
-  fi
 }
+
+# Create shell alias with `-a|--create-alias` specified
+CREATE_ALIAS="${PARAM_CREATE_ALIAS:-"false"}"
+if [ "$CREATE_ALIAS" == "true" ]; then
+  __info "Creating alias..."
+  _profile="$(func_detect_profile)"
+  _cwd="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+  _alias="alias live-dl='$_cwd/live-dl'"
+  grep -qxF "$_alias" "$_profile" || echo "$_alias" >> "$_profile"
+fi
 
 function func_create_url() {
   # Create correct URL/URI based on user input
@@ -1332,7 +1333,6 @@ HOME_EXPANDED=$(echo "$HOME" | sed -e 's/\//\\\//g')
 CONFIG_MODE=`echo $CONFIG_RAW | jq -r '.config.mode | select(.!=null)'`
 CONFIG_BASE_DIR=`echo $CONFIG_RAW | jq -r .config.output | sed -e 's/~/'"$HOME_EXPANDED"'/g'`
 CONFIG_INTERVAL=`echo $CONFIG_RAW | jq -r '.config.interval | select(.!=null)'`
-CONFIG_SKIP_ALIAS=`echo $CONFIG_RAW | jq -r '.config.skip_alias | select(.!=null)'`
 CONFIG_SKIP_CONVERT=`echo $CONFIG_RAW | jq -r '.config.skip_convert | select(.!=null)'`
 CONFIG_SKIP_METADATA=`echo $CONFIG_RAW | jq -r '.config.skip_metadata | select(.!=null)'`
 CONFIG_SKIP_EMAIL=`echo $CONFIG_RAW | jq -r '.config.skip_email | select(.!=null)'`
@@ -1354,7 +1354,6 @@ CONFIG_TELEGRAM_CHANNEL=`echo $CONFIG_RAW | jq -r '.config.telegram.channel | se
 MODE="${PARAM_MODE:-$CONFIG_MODE}"
 BASE_DIR="${_PARAM_BASE_DIR:-$CONFIG_BASE_DIR}"
 INTERVAL="${PARAM_INTERVAL:-$CONFIG_INTERVAL}"
-SKIP_ALIAS="${PARAM_SKIP_ALIAS:-$CONFIG_SKIP_ALIAS}"
 SKIP_CONVERT="${PARAM_SKIP_CONVERT:-$CONFIG_SKIP_CONVERT}"
 SKIP_METADATA="${PARAM_SKIP_METADATA:-$CONFIG_SKIP_METADATA}"
 SKIP_EMAIL="${PARAM_SKIP_EMAIL:-$CONFIG_SKIP_EMAIL}"
@@ -1368,7 +1367,6 @@ __info "URL (URI) to process           : ${URL_INPUT}"
 __info "Mode                           : ${MODE}"
 __info "Output base dir                : ${BASE_DIR}"
 __info "Run interval (when loop)       : ${INTERVAL}"
-__info "Skip script alias              : ${SKIP_ALIAS}"
 __info "Skip convert                   : ${SKIP_CONVERT}"
 __info "Skip embedding metadata        : ${SKIP_METADATA}"
 __info "Skip email notification        : ${SKIP_EMAIL}"
