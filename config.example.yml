@@ -13,23 +13,65 @@ config:
   #
   # All examples above should work
   output: ~/Downloads/VTuber Recordings
+
+  # Loop interval, unit: second
+  # Default: 10.
   interval: 10
+
+  # Skip dependency check
+  # Default: false
   skip_check: false
+
+  # Skip converting TS file to MP4. This can save save your time on lowend machines
+  # Default: false
   skip_convert: false
+
+  # Skip embedding metadata in videos.
+  # Default: false
   skip_metadata: false
+
+  # Skip sending emails when live starts/ends
+  # Default: false
   skip_email: false
+
+  # Skip sending Slack notifications when live starts
+  # Default: false
   skip_slack: false
+
+  # Skip sending notifications to specific Telegram channels (if available) when live starts
+  # Default: false
   skip_telegram: false
+
+  # Run script only once without monitoring
+  # Default: false
   one_time: false
+
+  # Set timezone for notifications
+  # Default: Asia/Tokyo
   timezone: Asia/Tokyo
+
   # Filter video titles. Only works with channel URL in stream download mode
   #
   # - Can be single string or regex expression. ie. ASMR|歌
   # - Can be overrided by passing --filter option
+  #
+  # Default: ""
   filter: ""
+
+  # Use youtube-dl to handle livestreams instead of streamlink
+  # Default: false
   ytdl_stream: false
+
+  # Passing additional options to youtube-dl. options should be quoted
+  # Default: ""
   ytdl_args: ""
+
+  # Passing additional options to streamlink. options should be quoted
+  # Default: ""
   streamlink_args: ""
+
+  # Choose your email provider. I recommend AWS SES
+  # Default: ses
   email_provider: ses
   mailgun:
     # Find your private API key at https://app.mailgun.com/app/account/security/api_keys
@@ -51,6 +93,8 @@ config:
     # https://api.telegram.org/bot<API-access-token>/getUpdates?offset=0
     channel: 0000000000000
 
+# Define your own channel map.
+# Channel map can provide channel specific options
 map:
   - name: Sparanoid
     mode: monitor
