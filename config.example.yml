@@ -22,6 +22,11 @@ config:
   skip_telegram: false
   one_time: false
   timezone: Asia/Tokyo
+  # Filter video titles. Only works with channel URL in stream download node
+  #
+  # - Can be single string or regex expression. ie. ASMR|
+  # - Can be overrided by passing --filter option
+  filter: ""
   email_provider: ses
   mailgun:
     # Find your private API key at https://app.mailgun.com/app/account/security/api_keys
