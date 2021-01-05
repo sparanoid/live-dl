@@ -507,7 +507,7 @@ function func_check_state() {
       __info "cURL check seems goes live now, continue checking..."
 
       if [ ! -z "$FILTER" ]; then
-        __info "User filter found: $(__yellow "$FILTER"). Checking if video title matches..."
+        __debug "User filter found: $(__yellow "$FILTER"). Checking if video title matches..."
 
         if [[ "$FULLTITLE" =~ $FILTER ]]; then
           __info "$(__green "Video title matched, mark as downloadable...")"
@@ -1424,12 +1424,12 @@ while true; do
       __debug "Not valid at the moment, continue running"
     fi
 
-    __info "Stream unavailable, retry in ${INTERVAL}s..."
+    __debug "Stream unavailable, retry in ${INTERVAL}s..."
     sleep $INTERVAL
   done
 
   # Get video(s) metadata
-  __info "Fetching metadata..."
+  __info "$(__green "Prepare downloading...")"
   __debug "Download platform: $DL_PLATFORM"
   __debug "Download type: $DL_TYPE"
   __debug "Download mode: $MODE"
