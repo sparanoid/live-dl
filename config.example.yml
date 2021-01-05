@@ -22,7 +22,7 @@ config:
   skip_telegram: false
   one_time: false
   timezone: Asia/Tokyo
-  # Filter video titles. Only works with channel URL in stream download node
+  # Filter video titles. Only works with channel URL in stream download mode
   #
   # - Can be single string or regex expression. ie. ASMR|
   # - Can be overrided by passing --filter option
