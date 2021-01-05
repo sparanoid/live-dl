@@ -23,8 +23,7 @@
 #
 # Changelog
 #
-# Sep 23, 2019
-# - First release
+# See https://github.com/sparanoid/live-dl
 #
 
 #
@@ -1262,7 +1261,7 @@ function func_finalize_download() {
     fi
 
     # Writing artwork cover
-    # I have to emabed artwork and metadata in two separate steps be cause FFmpeg can't pipe these
+    # I have to emabed artwork and metadata in two separate steps because FFmpeg can't pipe these
     # two steps into one. And AtomicParsley also doesn't support medatada in-file writing.
     if [ -f "$OUTPUT_PATH.mp4" ]; then
       __info "Writing artwork"
@@ -1360,6 +1359,7 @@ Options:
   --streamlink-args           Passing additional options to streamlink. options should be quoted
   --skip-check, -c            Skip dependency check, default: false
   --skip-convert              Skip converting TS file to MP4
+  --skip-metadata             Skip embedding metadata
   --skip-email                Skip sending email notification
   --skip-slack                Skip sending Slack notification
   --skip-telegram             Skip sending Telegram notification
