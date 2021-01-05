@@ -43,17 +43,14 @@
 # - [x] refine telegram multichannel support
 # - [x] channel name mapping
 # - [x] download base dir support
-# - [ ] get channel avatar
 # - [ ] upcoming streams detection
-# - [ ] keyword filter
-# - [ ] metadata overriding mode
+# - [x] keyword filter
 # - [x] summary output for uploading
 # - [x] recording summary
 # - [x] embed cover
 # - [x] add hostname to output
 # - [ ] dockerize this script
 # - [ ] bilibili live support
-# - [ ] qq notification
 # - [x] rewrite is_live detection logic
 #
 
@@ -114,6 +111,11 @@ while [ $# -gt 0 ]; do
       ;;
     -m|--mode)
       PARAM_MODE="$2"
+      shift
+      shift
+      ;;
+    --filter)
+      PARAM_FILTER="$2"
       shift
       shift
       ;;
@@ -503,7 +505,21 @@ function func_check_state() {
     # will do a secound check using youtube-dl later with this flag.
     if [ "$IS_LIVE" == "true" ]; then
       __info "cURL check seems goes live now, continue checking..."
-      CONTENT_STATE="live"
+
+      if [ ! -z "$FILTER" ]; then
+        __info "User filter found: $(__yellow "$FILTER"). Checking if video title matches..."
+
+        if [[ "$FULLTITLE" =~ $FILTER ]]; then
+          __info "$(__green "Video title matched, mark as downloadable...")"
+          CONTENT_STATE="live"
+        else
+          __info "$(__yellow "Video title does not match, skipping and continue monitoring...")"
+          CONTENT_STATE="invalid"
+        fi
+      else
+        __debug "No user filter found, mark as downloadable..."
+        CONTENT_STATE="live"
+      fi
     else
       # If `isLive` key not exists, check if it's a valid video (playable)
       if [ "$PLAYABILITY" == "OK" ]; then
@@ -1339,6 +1355,7 @@ _PARAM_BASE_DIR=${PARAM_BASE_DIR%/*}
 HOME_EXPANDED=$(echo "$HOME" | sed -e 's/\//\\\//g')
 
 CONFIG_MODE=`echo $CONFIG_RAW | jq -r '.config.mode | select(.!=null)'`
+CONFIG_FILTER=`echo $CONFIG_RAW | jq -r '.config.filter | select(.!=null)'`
 CONFIG_BASE_DIR=`echo $CONFIG_RAW | jq -r .config.output | sed -e 's/~/'"$HOME_EXPANDED"'/g'`
 CONFIG_INTERVAL=`echo $CONFIG_RAW | jq -r '.config.interval | select(.!=null)'`
 CONFIG_SKIP_CONVERT=`echo $CONFIG_RAW | jq -r '.config.skip_convert | select(.!=null)'`
@@ -1360,6 +1377,7 @@ CONFIG_TELEGRAM_BOT=`echo $CONFIG_RAW | jq -r '.config.telegram.bot | select(.!=
 CONFIG_TELEGRAM_CHANNEL=`echo $CONFIG_RAW | jq -r '.config.telegram.channel | select(.!=null)'`
 
 MODE="${PARAM_MODE:-$CONFIG_MODE}"
+FILTER="${PARAM_FILTER:-$CONFIG_FILTER}"
 BASE_DIR="${_PARAM_BASE_DIR:-$CONFIG_BASE_DIR}"
 INTERVAL="${PARAM_INTERVAL:-$CONFIG_INTERVAL}"
 SKIP_CONVERT="${PARAM_SKIP_CONVERT:-$CONFIG_SKIP_CONVERT}"
@@ -1406,7 +1424,7 @@ while true; do
       __debug "Not valid at the moment, continue running"
     fi
 
-    __info "No streaming yet, retry in ${INTERVAL}s..."
+    __info "Stream unavailable, retry in ${INTERVAL}s..."
     sleep $INTERVAL
   done
 
