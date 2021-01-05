@@ -129,6 +129,10 @@ while [ $# -gt 0 ]; do
       shift
       shift
       ;;
+    --ytdl-stream)
+      PARAM_YTDL_STREAM=true
+      shift
+      ;;
     --init)
       PARAM_INIT_SCRIPT=true
       shift
@@ -1139,21 +1143,34 @@ function func_download_youtube() {
   __info "Logging: tail -f \"$OUTPUT_PATH.log\""
 
   if [ "$CONTENT_STATE" == "live" ]; then
-    streamlink \
-      --force \
-      --http-timeout 180 \
-      --hls-live-restart \
-      --hls-segment-threads 10 \
-      --hls-segment-timeout 120 \
-      --hls-segment-attempts 300 \
-      --hls-segment-ignore-names preloading \
-      --hls-playlist-reload-attempts 30 \
-      --hls-live-edge 5 \
-      --hls-timeout 90 \
-      --ringbuffer-size 256M \
-      --loglevel trace \
-      -o "$OUTPUT_PATH.ts" \
-      "${WEBPAGE_URL}" best >> "$OUTPUT_PATH.log" 2>&1
+    if [ "$YTDL_STREAM" == "true" ]; then
+      youtube-dl \
+        --ignore-config \
+        --hls-prefer-native \
+        --hls-use-mpegts \
+        --no-part \
+        -f 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best' \
+        --force-ipv4 \
+        --retries 30 \
+        -o "$OUTPUT_PATH.ts" \
+        "${WEBPAGE_URL}" >> "$OUTPUT_PATH.log" 2>&1
+    else
+      streamlink \
+        --force \
+        --http-timeout 180 \
+        --hls-live-restart \
+        --hls-segment-threads 10 \
+        --hls-segment-timeout 120 \
+        --hls-segment-attempts 300 \
+        --hls-segment-ignore-names preloading \
+        --hls-playlist-reload-attempts 30 \
+        --hls-live-edge 5 \
+        --hls-timeout 90 \
+        --ringbuffer-size 256M \
+        --loglevel trace \
+        -o "$OUTPUT_PATH.ts" \
+        "${WEBPAGE_URL}" best >> "$OUTPUT_PATH.log" 2>&1
+    fi
   elif [ "$CONTENT_STATE" == "video" ]; then
     if [ "$DL_TYPE" == "playlist" ]; then
       # TODO: You have to loop over all the videos to add metadata and thumbnail manually.
@@ -1323,9 +1340,13 @@ Examples:
 
 Options:
   --mode, -m                  Running mode, default: download, available: metadata, notifier
+  --filter                    Filter video titles. Only works in channel mode
+                              * Can be single string or regex expression. ie. ASMR|歌
+                              * Can be overrided by passing --filter option
   --output, -o                Base output directory, default: ~/Downloads
   --interval, -i              Loop interval, unit: second, default: 10.
                               Avoid setting this value too low or your IP may get banned by YouTube
+  --ytdl-stream               Use youtube-dl to handle livestreams instead of streamlink
   --skip-check, -c            Skip dependency check, default: false
   --skip-convert              Skip converting TS file to MP4
   --skip-email                Skip sending email notification
@@ -1358,6 +1379,7 @@ CONFIG_MODE=`echo $CONFIG_RAW | jq -r '.config.mode | select(.!=null)'`
 CONFIG_FILTER=`echo $CONFIG_RAW | jq -r '.config.filter | select(.!=null)'`
 CONFIG_BASE_DIR=`echo $CONFIG_RAW | jq -r .config.output | sed -e 's/~/'"$HOME_EXPANDED"'/g'`
 CONFIG_INTERVAL=`echo $CONFIG_RAW | jq -r '.config.interval | select(.!=null)'`
+CONFIG_YTDL_STREAM=`echo $CONFIG_RAW | jq -r '.config.ytdl_stream | select(.!=null)'`
 CONFIG_SKIP_CONVERT=`echo $CONFIG_RAW | jq -r '.config.skip_convert | select(.!=null)'`
 CONFIG_SKIP_METADATA=`echo $CONFIG_RAW | jq -r '.config.skip_metadata | select(.!=null)'`
 CONFIG_SKIP_EMAIL=`echo $CONFIG_RAW | jq -r '.config.skip_email | select(.!=null)'`
@@ -1380,6 +1402,7 @@ MODE="${PARAM_MODE:-$CONFIG_MODE}"
 FILTER="${PARAM_FILTER:-$CONFIG_FILTER}"
 BASE_DIR="${_PARAM_BASE_DIR:-$CONFIG_BASE_DIR}"
 INTERVAL="${PARAM_INTERVAL:-$CONFIG_INTERVAL}"
+YTDL_STREAM="${PARAM_YTDL_STREAM:-$CONFIG_YTDL_STREAM}"
 SKIP_CONVERT="${PARAM_SKIP_CONVERT:-$CONFIG_SKIP_CONVERT}"
 SKIP_METADATA="${PARAM_SKIP_METADATA:-$CONFIG_SKIP_METADATA}"
 SKIP_EMAIL="${PARAM_SKIP_EMAIL:-$CONFIG_SKIP_EMAIL}"
@@ -1393,6 +1416,7 @@ __info "URL (URI) to process           : ${URL_INPUT}"
 __info "Mode                           : ${MODE}"
 __info "Output base dir                : ${BASE_DIR}"
 __info "Run interval (when loop)       : ${INTERVAL}"
+__info "Use youtube-dl for streams     : ${YTDL_STREAM}"
 __info "Skip convert                   : ${SKIP_CONVERT}"
 __info "Skip embedding metadata        : ${SKIP_METADATA}"
 __info "Skip email notification        : ${SKIP_EMAIL}"

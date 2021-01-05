@@ -24,9 +24,10 @@ config:
   timezone: Asia/Tokyo
   # Filter video titles. Only works with channel URL in stream download mode
   #
-  # - Can be single string or regex expression. ie. ASMR|
+  # - Can be single string or regex expression. ie. ASMR|歌
   # - Can be overrided by passing --filter option
   filter: ""
+  ytdl_stream: false
   email_provider: ses
   mailgun:
     # Find your private API key at https://app.mailgun.com/app/account/security/api_keys
