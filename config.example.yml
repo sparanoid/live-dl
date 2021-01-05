@@ -28,6 +28,8 @@ config:
   # - Can be overrided by passing --filter option
   filter: ""
   ytdl_stream: false
+  ytdl_args: ""
+  streamlink_args: ""
   email_provider: ses
   mailgun:
     # Find your private API key at https://app.mailgun.com/app/account/security/api_keys

@@ -133,6 +133,16 @@ while [ $# -gt 0 ]; do
       PARAM_YTDL_STREAM=true
       shift
       ;;
+    --ytdl-args)
+      PARAM_YTDL_ARGS="$2"
+      shift
+      shift
+      ;;
+    --streamlink-args)
+      PARAM_STREAMLINK_ARGS="$2"
+      shift
+      shift
+      ;;
     --init)
       PARAM_INIT_SCRIPT=true
       shift
@@ -1152,7 +1162,7 @@ function func_download_youtube() {
         -f 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best' \
         --force-ipv4 \
         --retries 30 \
-        -o "$OUTPUT_PATH.ts" \
+        $YTDL_ARGS -o "$OUTPUT_PATH.ts" \
         "${WEBPAGE_URL}" >> "$OUTPUT_PATH.log" 2>&1
     else
       streamlink \
@@ -1168,7 +1178,7 @@ function func_download_youtube() {
         --hls-timeout 90 \
         --ringbuffer-size 256M \
         --loglevel trace \
-        -o "$OUTPUT_PATH.ts" \
+        $STREAMLINK_ARGS -o "$OUTPUT_PATH.ts" \
         "${WEBPAGE_URL}" best >> "$OUTPUT_PATH.log" 2>&1
     fi
   elif [ "$CONTENT_STATE" == "video" ]; then
@@ -1192,7 +1202,7 @@ function func_download_youtube() {
         --embed-subs \
         --force-ipv4 \
         --retries 30 \
-        -o "${OUTPUT_BASE}/%(upload_date)s %(title)s (%(id)s).%(ext)s" \
+        $YTDL_ARGS -o "${OUTPUT_BASE}/%(upload_date)s %(title)s (%(id)s).%(ext)s" \
         "${WEBPAGE_URL}"
     else
       youtube-dl \
@@ -1206,7 +1216,7 @@ function func_download_youtube() {
         --sub-format best \
         --force-ipv4 \
         --retries 30 \
-        -o "${OUTPUT_BASE}/%(upload_date)s %(title)s (%(id)s).%(ext)s" \
+        $YTDL_ARGS -o "${OUTPUT_BASE}/%(upload_date)s %(title)s (%(id)s).%(ext)s" \
         "${WEBPAGE_URL}"
     fi
   else
@@ -1347,6 +1357,8 @@ Options:
   --interval, -i              Loop interval, unit: second, default: 10.
                               Avoid setting this value too low or your IP may get banned by YouTube
   --ytdl-stream               Use youtube-dl to handle livestreams instead of streamlink
+  --ytdl-args                 Passing additional options to youtube-dl. options should be quoted
+  --streamlink-args           Passing additional options to streamlink. options should be quoted
   --skip-check, -c            Skip dependency check, default: false
   --skip-convert              Skip converting TS file to MP4
   --skip-email                Skip sending email notification
@@ -1380,6 +1392,8 @@ CONFIG_FILTER=`echo $CONFIG_RAW | jq -r '.config.filter | select(.!=null)'`
 CONFIG_BASE_DIR=`echo $CONFIG_RAW | jq -r .config.output | sed -e 's/~/'"$HOME_EXPANDED"'/g'`
 CONFIG_INTERVAL=`echo $CONFIG_RAW | jq -r '.config.interval | select(.!=null)'`
 CONFIG_YTDL_STREAM=`echo $CONFIG_RAW | jq -r '.config.ytdl_stream | select(.!=null)'`
+CONFIG_YTDL_ARGS=`echo $CONFIG_RAW | jq -r '.config.ytdl_args | select(.!=null)'`
+CONFIG_STREAMLINK_ARGS=`echo $CONFIG_RAW | jq -r '.config.streamlink_args | select(.!=null)'`
 CONFIG_SKIP_CONVERT=`echo $CONFIG_RAW | jq -r '.config.skip_convert | select(.!=null)'`
 CONFIG_SKIP_METADATA=`echo $CONFIG_RAW | jq -r '.config.skip_metadata | select(.!=null)'`
 CONFIG_SKIP_EMAIL=`echo $CONFIG_RAW | jq -r '.config.skip_email | select(.!=null)'`
@@ -1403,6 +1417,8 @@ FILTER="${PARAM_FILTER:-$CONFIG_FILTER}"
 BASE_DIR="${_PARAM_BASE_DIR:-$CONFIG_BASE_DIR}"
 INTERVAL="${PARAM_INTERVAL:-$CONFIG_INTERVAL}"
 YTDL_STREAM="${PARAM_YTDL_STREAM:-$CONFIG_YTDL_STREAM}"
+YTDL_ARGS="${PARAM_YTDL_ARGS:-$CONFIG_YTDL_ARGS}"
+STREAMLINK_ARGS="${PARAM_STREAMLINK_ARGS:-$CONFIG_STREAMLINK_ARGS}"
 SKIP_CONVERT="${PARAM_SKIP_CONVERT:-$CONFIG_SKIP_CONVERT}"
 SKIP_METADATA="${PARAM_SKIP_METADATA:-$CONFIG_SKIP_METADATA}"
 SKIP_EMAIL="${PARAM_SKIP_EMAIL:-$CONFIG_SKIP_EMAIL}"
