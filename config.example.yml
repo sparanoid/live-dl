@@ -5,6 +5,8 @@ config:
   # - metadata: download JSON metadata only
   # - notifier: only send notifications
   mode: download
+
+  # Output directory
   # There's no need to quote or escape your path, examples:
   #
   # - ~/Downlaods
@@ -22,7 +24,7 @@ config:
   # Default: false
   skip_check: false
 
-  # Skip converting TS file to MP4. This can save save your time on lowend machines
+  # Skip converting TS file to MP4. This can save your time on lowend machines
   # Default: false
   skip_convert: false
 
@@ -55,7 +57,7 @@ config:
   # - Can be single string or regex expression. ie. ASMR|歌
   # - Can be overrided by passing --filter option
   #
-  # Default: ""
+  # Default: "" (download all streams)
   filter: ""
 
   # Use youtube-dl to handle livestreams instead of streamlink
