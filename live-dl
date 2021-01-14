@@ -1230,21 +1230,29 @@ function func_download_bilibili() {
 function func_finalize_download() {
   __info "Stop downloading"
 
-  if [ "$CONTENT_STATE" == "live" ]; then
-    # Convert from TS to MP4 (will override existing with -y option)
-    __info "Converting to MP4"
-    ffmpeg -i "$OUTPUT_PATH.ts" -y \
-      -codec copy \
-      "$OUTPUT_PATH.mp4" >> "$OUTPUT_PATH.log" 2>&1
+  if [ ! "$SKIP_CONVERT" ]; then
 
-    # Remove original TS file
-    rm -f "$OUTPUT_PATH.ts"
+    if [ "$CONTENT_STATE" == "live" ]; then
+      # Convert from TS to MP4 (will override existing with -y option)
+      __info "Converting to MP4"
+      ffmpeg -i "$OUTPUT_PATH.ts" -y \
+        -codec copy \
+        "$OUTPUT_PATH.mp4" >> "$OUTPUT_PATH.log" 2>&1
+
+      # Remove original TS file
+      rm -f "$OUTPUT_PATH.ts"
+
+      # Assign finalized path for later use
+      OUTPUT_PATH_EXT=$OUTPUT_PATH.mp4
+    fi
+  else
+    OUTPUT_PATH_EXT=$OUTPUT_PATH.ts
   fi
 
   if [ ! "$SKIP_METADATA" ]; then
     __info "Trying to write metadata and artwork"
 
-    # Write metadata to MP4 (will override existing with -y option)
+    # Write metadata to MP4 if exists (will override existing with -y option)
     if [ -f "$OUTPUT_PATH.mp4" ]; then
       __info "Writing metadata"
       ffmpeg -i "$OUTPUT_PATH.mp4" -y \
@@ -1260,7 +1268,7 @@ function func_finalize_download() {
       __info "$(__yellow "Output file not exists, skip writing metadata.")"
     fi
 
-    # Writing artwork cover
+    # Writing artwork cover if exists
     # I have to emabed artwork and metadata in two separate steps because FFmpeg can't pipe these
     # two steps into one. And AtomicParsley also doesn't support medatada in-file writing.
     if [ -f "$OUTPUT_PATH.mp4" ]; then
@@ -1284,9 +1292,9 @@ function func_finalize_download() {
   fi
 
   # Get file summary for later use
-  if [ -f "$OUTPUT_PATH.mp4" ]; then
+  if [ -f "$OUTPUT_PATH_EXT" ]; then
     DOWNLOADED_FILE_SUMMARY=`ffprobe -i \
-      "$OUTPUT_PATH.mp4" \
+      "$OUTPUT_PATH_EXT" \
       -v quiet \
       -print_format json \
       -show_format \
@@ -1300,7 +1308,7 @@ function func_finalize_download() {
     FILE_SUMMARY_SIZE_CALC=$(numfmt --to=iec-i --suffix=B $FILE_SUMMARY_SIZE)
     FILE_SUMMARY="Duration:  $FILE_SUMMARY_DURATION_CALC
 Size:      $FILE_SUMMARY_SIZE_CALC
-Path:      $HOSTNAME:$OUTPUT_PATH.mp4
+Path:      $HOSTNAME:$OUTPUT_PATH_EXT
 " && echo -e "\n$FILE_SUMMARY"
   else
     FILE_SUMMARY="File summary not available due to missing files"
