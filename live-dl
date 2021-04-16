@@ -424,273 +424,275 @@ function func_check_state() {
   # Assume it's not a valid page, I use a custom state `invalid` here as initial state
   CONTENT_STATE="invalid"
 
-  # Actually there's an official way to check if the streamer is live or not[^1] using YouTube
-  # offical Data API, but it's costy that every search request costs you 100 credits. However
-  # you can try it online[^2] to see how it works.
-  #
-  # If you have accounts that registered YouTube developer program before 2017, and has more
-  # than 10 million credit quota, you can contact me t@sparanoid.com
-  #
-  # [1]: https://developers.google.com/youtube/v3/docs/search
-  # [2]: https://developers.google.com/youtube/v3/code_samples/code_snippets
+  if [ "$DL_PLATFORM" == "YouTube" ]; then
+    # Actually there's an official way to check if the streamer is live or not[^1] using YouTube
+    # offical Data API, but it's costy that every search request costs you 100 credits. However
+    # you can try it online[^2] to see how it works.
+    #
+    # If you have accounts that registered YouTube developer program before 2017, and has more
+    # than 10 million credit quota, you can contact me t@sparanoid.com
+    #
+    # [1]: https://developers.google.com/youtube/v3/docs/search
+    # [2]: https://developers.google.com/youtube/v3/code_samples/code_snippets
 
-  # First check: use curl to check HTML pages for live state
-  # Pros:
-  # - Fast, no additional API requests compared to youtube-dl
-  # - More ban-proof compared to youtube-dl
-  # Cons:
-  # - Can get wrong live state due to page caching, network interrupts, etc.
-  local _body=$(curl -s --compressed -H "User-Agent: $USER_AGENT" "$_url")
+    # First check: use curl to check HTML pages for live state
+    # Pros:
+    # - Fast, no additional API requests compared to youtube-dl
+    # - More ban-proof compared to youtube-dl
+    # Cons:
+    # - Can get wrong live state due to page caching, network interrupts, etc.
+    local _body=$(curl -s --compressed -H "User-Agent: $USER_AGENT" "$_url")
 
-  # Extract metadata from fetched page
-  METADATA_CURL_RAW=`echo "$_body" | grep 'ytInitialPlayerResponse' | grep '<script' | grep 'responseContext'`
+    # Extract metadata from fetched page
+    METADATA_CURL_RAW=`echo "$_body" | grep 'ytInitialPlayerResponse' | grep '<script' | grep 'responseContext'`
 
-  # Match only JSON part
-  # https://regex101.com/r/QiyZE2/3
-  #
-  # Debug commmand if YouTube changes its HTML structure in the future:
-  # $ curl -s --compressed -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36" 'https://www.youtube.com/watch?v=j2z06YUbulk' | grep 'ytInitialPlayerResponse' | grep '<script' | grep 'responseContext' | perl -pe 's/^.*?ytInitialPlayerResponse = ({".*]});var .*/\1/g' | jq -r .
+    # Match only JSON part
+    # https://regex101.com/r/QiyZE2/3
+    #
+    # Debug commmand if YouTube changes its HTML structure in the future:
+    # $ curl -s --compressed -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36" 'https://www.youtube.com/watch?v=j2z06YUbulk' | grep 'ytInitialPlayerResponse' | grep '<script' | grep 'responseContext' | perl -pe 's/^.*?ytInitialPlayerResponse = ({".*]});var .*/\1/g' | jq -r .
   METADATA_CURL=`echo "$METADATA_CURL_RAW" | perl -pe 's/^.*?ytInitialPlayerResponse = (\{".*\]\});var .*/\1/g' | jq -r .`
 
-  # Check if returns nothing
-  if [ ! -z "$METADATA_CURL" ]; then
-    __debug "Got valid cURL metadata"
+    # Check if returns nothing
+    if [ ! -z "$METADATA_CURL" ]; then
+      __debug "Got valid cURL metadata"
 
-    # At the time of writing, when `videoDetails.isLive` exists, it should be on live, when a video
-    # is not live (normal videos, and even upcoming streams) this key will be missing and jq will
-    # return `null`
-    IS_LIVE=$(echo "$METADATA_CURL" | jq -r '.videoDetails.isLive | select(.!=null)')
-    __debug "Is live: $IS_LIVE"
+      # At the time of writing, when `videoDetails.isLive` exists, it should be on live, when a video
+      # is not live (normal videos, and even upcoming streams) this key will be missing and jq will
+      # return `null`
+      IS_LIVE=$(echo "$METADATA_CURL" | jq -r '.videoDetails.isLive | select(.!=null)')
+      __debug "Is live: $IS_LIVE"
 
-    # This status will always return:
-    # - `OK` for live streams, private streams, or normal videos,
-    # - `LIVE_STREAM_OFFLINE` for offline channel
-    PLAYABILITY=$(echo "$METADATA_CURL" | jq -r '.playabilityStatus.status | select(.!=null)')
-    __debug "Playability: $PLAYABILITY"
+      # This status will always return:
+      # - `OK` for live streams, private streams, or normal videos,
+      # - `LIVE_STREAM_OFFLINE` for offline channel
+      PLAYABILITY=$(echo "$METADATA_CURL" | jq -r '.playabilityStatus.status | select(.!=null)')
+      __debug "Playability: $PLAYABILITY"
 
-    # You will get some playability reasons for:
-    # - `Offline` for streams are not live
-    # - `This live event will begin in {n} hours.` for upcoming streams, you can also get specific
-    #   UNIX timestamp with .scheduledStartTime (see below)
-    # - `null` (this key will be missing) for:
-    #   - On live streams or private streams
-    #   - Non-streaming content
-    PLAYABILITY_REASON=$(echo "$METADATA_CURL" | jq -r '.playabilityStatus.reason | select(.!=null)')
-    __debug "Playability Reason: $PLAYABILITY_REASON"
+      # You will get some playability reasons for:
+      # - `Offline` for streams are not live
+      # - `This live event will begin in {n} hours.` for upcoming streams, you can also get specific
+      #   UNIX timestamp with .scheduledStartTime (see below)
+      # - `null` (this key will be missing) for:
+      #   - On live streams or private streams
+      #   - Non-streaming content
+      PLAYABILITY_REASON=$(echo "$METADATA_CURL" | jq -r '.playabilityStatus.reason | select(.!=null)')
+      __debug "Playability Reason: $PLAYABILITY_REASON"
 
-    # When the streamer is streaming privately, this key will be empty
-    STREAMABILITY=$(echo "$METADATA_CURL" | jq -r '.playabilityStatus.liveStreamability.liveStreamabilityRenderer.videoId | select(.!=null)')
-    __debug "Streamability ID: $STREAMABILITY"
+      # When the streamer is streaming privately, this key will be empty
+      STREAMABILITY=$(echo "$METADATA_CURL" | jq -r '.playabilityStatus.liveStreamability.liveStreamabilityRenderer.videoId | select(.!=null)')
+      __debug "Streamability ID: $STREAMABILITY"
 
-    # Get upcoming time when available
-    # This key will be missing if no upcoming events available
-    UPCOMING_TIME=$(echo "$METADATA_CURL" | jq -r '.playabilityStatus.liveStreamability.liveStreamabilityRenderer.offlineSlate.liveStreamOfflineSlateRenderer.scheduledStartTime | select(.!=null)')
-    if [ ! -z "$UPCOMING_TIME" ]; then
-      if [[ "$OSTYPE" == "darwin"* ]]; then
-        local _date_calc=`date -r $UPCOMING_TIME`
-      else
-        local _date_calc=`date -d @$UPCOMING_TIME`
+      # Get upcoming time when available
+      # This key will be missing if no upcoming events available
+      UPCOMING_TIME=$(echo "$METADATA_CURL" | jq -r '.playabilityStatus.liveStreamability.liveStreamabilityRenderer.offlineSlate.liveStreamOfflineSlateRenderer.scheduledStartTime | select(.!=null)')
+      if [ ! -z "$UPCOMING_TIME" ]; then
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+          local _date_calc=`date -r $UPCOMING_TIME`
+        else
+          local _date_calc=`date -d @$UPCOMING_TIME`
+        fi
+
+        __debug "Scheduled Time: $_date_calc ($UPCOMING_TIME)"
       fi
 
-      __debug "Scheduled Time: $_date_calc ($UPCOMING_TIME)"
-    fi
+      # Get some metadata first, I will retrieve more later using youtube-dl
+      VIDEO_ID=$(echo "$METADATA_CURL" | jq -r '.videoDetails.videoId')
+      FULLTITLE=$(echo "$METADATA_CURL" | jq -r '.videoDetails.title')
+      DESCRIPTION=$(echo "$METADATA_CURL" | jq -r '.videoDetails.shortDescription')
+      UPLOADER=$(echo "$METADATA_CURL" | jq -r '.videoDetails.author')
+      CHANNEL_ID=$(echo "$METADATA_CURL" | jq -r '.videoDetails.channelId')
 
-    # Get some metadata first, I will retrieve more later using youtube-dl
-    VIDEO_ID=$(echo "$METADATA_CURL" | jq -r '.videoDetails.videoId')
-    FULLTITLE=$(echo "$METADATA_CURL" | jq -r '.videoDetails.title')
-    DESCRIPTION=$(echo "$METADATA_CURL" | jq -r '.videoDetails.shortDescription')
-    UPLOADER=$(echo "$METADATA_CURL" | jq -r '.videoDetails.author')
-    CHANNEL_ID=$(echo "$METADATA_CURL" | jq -r '.videoDetails.channelId')
+      # Print basic metadata for reference
+      __debug "Channel: $UPLOADER"
+      __debug "Title: $FULLTITLE"
 
-    # Print basic metadata for reference
-    __debug "Channel: $UPLOADER"
-    __debug "Title: $FULLTITLE"
+      # NOTE: Oct 25, 2020
+      # With recent changes of YouTube API, you cannot get live JSON from a /live channel URL.
+      # This causes empty response during youtube-dl second check. So I redirect channel page check to
+      # video page check after I got the specific video ID.
+      if ([ "$DL_TYPE" == "channel" ] && [ "$DL_PLATFORM" == "YouTube" ]); then
+        _url="https://www.youtube.com/watch?v=$VIDEO_ID"
+      fi
 
-    # NOTE: Oct 25, 2020
-    # With recent changes of YouTube API, you cannot get live JSON from a /live channel URL.
-    # This causes empty response during youtube-dl second check. So I redirect channel page check to
-    # video page check after I got the specific video ID.
-    if ([ "$DL_TYPE" == "channel" ] && [ "$DL_PLATFORM" == "YouTube" ]); then
-      _url="https://www.youtube.com/watch?v=$VIDEO_ID"
-    fi
+      # If I got `isLive: true` in first check, let me assume it's live but I can't trust it so I
+      # will do a secound check using youtube-dl later with this flag.
+      if [ "$IS_LIVE" == "true" ]; then
+        __info "cURL check seems goes live now, continue checking..."
 
-    # If I got `isLive: true` in first check, let me assume it's live but I can't trust it so I
-    # will do a secound check using youtube-dl later with this flag.
-    if [ "$IS_LIVE" == "true" ]; then
-      __info "cURL check seems goes live now, continue checking..."
+        if [ ! -z "$FILTER" ]; then
+          __debug "User filter found: $(__yellow "$FILTER"). Checking if video title matches..."
 
-      if [ ! -z "$FILTER" ]; then
-        __debug "User filter found: $(__yellow "$FILTER"). Checking if video title matches..."
-
-        if [[ "$FULLTITLE" =~ $FILTER ]]; then
-          __info "$(__green "Video title matched, mark as downloadable...")"
-          CONTENT_STATE="live"
+          if [[ "$FULLTITLE" =~ $FILTER ]]; then
+            __info "$(__green "Video title matched, mark as downloadable...")"
+            CONTENT_STATE="live"
+          else
+            __info "$(__yellow "Video title does not match, skipping and continue monitoring...")"
+            CONTENT_STATE="invalid"
+          fi
         else
-          __info "$(__yellow "Video title does not match, skipping and continue monitoring...")"
+          __debug "No user filter found, mark as downloadable..."
+          CONTENT_STATE="live"
+        fi
+      else
+        # If `isLive` key not exists, check if it's a valid video (playable)
+        if [ "$PLAYABILITY" == "OK" ]; then
+
+          # Then check if it's a channel URL
+          if [ "$DL_TYPE" == "channel" ]; then
+
+            # Check if the streamer is streaming privately.
+            if [ -z "$STREAMABILITY" ]; then
+              __info "$(__yellow "/live redirects to /, event mode or streaming privately?")"
+            fi
+          else
+            CONTENT_STATE="video"
+          fi
+        fi
+
+        # Then check if the stream just goes offline
+        if [ "$PLAYABILITY" == "LIVE_STREAM_OFFLINE" ]; then
+          CONTENT_STATE="offline"
+
+          # Check if upcoming event available
+          if [ ! -z "$UPCOMING_TIME" ]; then
+            __info "$(__yellow "Upcoming event detected: $UPCOMING_TIME")"
+          fi
+        fi
+      fi
+
+      # Print current state for first check
+      __debug "Current state for first check: $(__yellow "$CONTENT_STATE")"
+    else
+      __info "$(__yellow "Not a valid page, something wrong with your internet connection?")"
+    fi
+
+    # Old method:
+    # if echo "$_body" | grep -q 'ytplayer'; then
+
+    #   # Assume it's not a live streaming page
+    #   IS_LIVE_CONTENT="false"
+
+    #   # Actually there's an official way to check if the streamer is live or not[^1] using YouTube
+    #   # offical Data API, but it's costy that every search request costs you 100 credits. However
+    #   # you can try it online[^2] to see how it works.
+    #   #
+    #   # If you have accounts that registered YouTube developer program before 2017, and has more
+    #   # than 10 million credit quota, you can contact me t@sparanoid.com
+    #   #
+    #   # [1]: https://developers.google.com/youtube/v3/docs/search
+    #   # [2]: https://developers.google.com/youtube/v3/code_samples/code_snippets
+    #   if echo "$_body" | grep 'ytplayer' | grep -q '\\"isLive\\":true'; then
+    #     # Is live, break out of loop and continue to next step
+    #     IS_LIVE_CONTENT="true"
+    #     break
+    #   fi
+
+    #   # Also break out if the given URL is not a channel (probably a video or a playlist)
+    #   # This extra check could avoid downloading an upcoming stream when then "isLive" check above
+    #   # fails for some reason (like YouTube changes the `isLive` JSON key to something else)
+    #   if ! [ "$DL_TYPE" == "channel" ]; then
+    #     # This script now can also handle normal YouTube video, but there's no way to check if the
+    #     # given URL is a normal video or an upcoming stream, so we can just break out of the loop
+    #     # and fallback to youtube-dl to check whelter this URL is downloadable. And make sure it
+    #     # only execute once.
+    #     ONE_TIME="true"
+    #     break
+    #   fi
+
+    # else
+    #   __info "$(__yellow "Not a valid video page!")"
+    #   __info "You may get this warning due to internet interruption, continue running"
+
+    #   # NOTE: Although this is the natural logic to exit the program if we can't find specific
+    #   # element on this page that means it's not a valid video page. But in some rare cases, the
+    #   # original page may be down or unreachable for internet interruption or other network issues.
+    #   # So I decide to let the script continue to execute because this script is mainly focused on
+    #   # recording streams.
+
+    #   # exit 1
+    # fi
+
+    # Second check: use `youtube-dl` to check live state
+    # NOTE: please avoid adding additional paths in the -o (template) option, it doesn't work well
+    # and conflicts with my custom directory setup!
+    # I also need redirect stderr to stdout to catch any error during fetching URL
+    # Pros:
+    # - Accurate live state detection
+    # Cons:
+    # - Slow, youtube-dl will fire API requests to get more info it need to download videos
+    # - Your IP can get banned easily when running in download or notifier mode due to large amount of
+    #   API requests.
+    if [ "$CONTENT_STATE" != "invalid" ]; then
+
+      # Condition explain:
+      # Only run second check when:
+      # - The stream goes live that need a second check to ensure it's actually live
+      # - The stream goes offline that need a second check to ensure it's actually offline
+      if ([ "$CONTENT_STATE" != "offline" ] && [ "$_mode" != "lazy" ]) || \
+        ([ "$CONTENT_STATE" == "offline" ] && [ "$_mode" == "lazy" ])
+      then
+        __info "Re-checking via youtube-dl..."
+        METADATA=`youtube-dl --ignore-config --no-playlist --playlist-items 0 \
+          --skip-download --print-json --force-ipv4 --referer 'https://www.youtube.com/feed/subscriptions' \
+          -o '%(upload_date)s %(title)s (%(id)s).%(ext)s' \
+          "$_url" 2>&1`
+
+        # Check if returns nothing
+        if [ ! -z "$METADATA" ]; then
+          __debug "Got valid youtube-dl metadata"
+
+          # Check if it's a valid JSON return
+          if [[ "$METADATA" == '{'* ]]; then
+            # Unlike other part of the jq checks, I ignore the `| select(.!=null)` to explicitly
+            # return `null` to tell if it's a normal video or it just returns nothing
+            local _is_live=`echo "$METADATA" | jq -r '.is_live'`
+
+            # Parse metadata
+            func_process_youtube_metadata
+
+            # Map uploader name with pre-defined config
+            func_process_channel_mapping
+
+            # Finalize variables and paths then output summary
+            func_finalize_vars
+
+            if [ "$_is_live" == "true" ]; then
+              __debug "Got state: live";
+              CONTENT_STATE="live"
+            elif [ "$_is_live" == "null" ]; then
+              __debug "Got state: video";
+              CONTENT_STATE="video"
+            else
+              __info "youtube-dl does not returns a valid state";
+              CONTENT_STATE="invalid"
+            fi
+          else
+            __debug "$METADATA"
+            if [[ "$METADATA" =~ "This video is unavailable" ]]; then
+              # Suppress `video is unavailable` errors since they're common when stream is not live
+              __debug "This video is unavailable, maybe not live at the moment."
+              CONTENT_STATE="unavailable"
+            elif [[ "$METADATA" =~ "HTTP Error 404" ]]; then
+              __info "$(__yellow "Not a valid video page (Error 404)!")"
+              CONTENT_STATE="not_found"
+            elif [[ "$METADATA" =~ "HTTP Error 429" ]]; then
+              __info "$(__yellow "Your IP is limited by YouTube (Error 429)!")"
+              CONTENT_STATE="too_many_requests"
+            else
+              __info "$(__yellow "Unknown metadata")"
+              __info "$METADATA"
+              CONTENT_STATE="invalid"
+            fi
+          fi
+        else
+          __info "$(__yellow "Second check failed, not valid youtube-dl metadata")"
           CONTENT_STATE="invalid"
         fi
-      else
-        __debug "No user filter found, mark as downloadable..."
-        CONTENT_STATE="live"
+
+        # Print current state for second check
+        __debug "Current state for second check: $(__yellow "$CONTENT_STATE")"
       fi
-    else
-      # If `isLive` key not exists, check if it's a valid video (playable)
-      if [ "$PLAYABILITY" == "OK" ]; then
-
-        # Then check if it's a channel URL
-        if [ "$DL_TYPE" == "channel" ]; then
-
-          # Check if the streamer is streaming privately.
-          if [ -z "$STREAMABILITY" ]; then
-            __info "$(__yellow "/live redirects to /, event mode or streaming privately?")"
-          fi
-        else
-          CONTENT_STATE="video"
-        fi
-      fi
-
-      # Then check if the stream just goes offline
-      if [ "$PLAYABILITY" == "LIVE_STREAM_OFFLINE" ]; then
-        CONTENT_STATE="offline"
-
-        # Check if upcoming event available
-        if [ ! -z "$UPCOMING_TIME" ]; then
-          __info "$(__yellow "Upcoming event detected: $UPCOMING_TIME")"
-        fi
-      fi
-    fi
-
-    # Print current state for first check
-    __debug "Current state for first check: $(__yellow "$CONTENT_STATE")"
-  else
-    __info "$(__yellow "Not a valid page, something wrong with your internet connection?")"
-  fi
-
-  # Old method:
-  # if echo "$_body" | grep -q 'ytplayer'; then
-
-  #   # Assume it's not a live streaming page
-  #   IS_LIVE_CONTENT="false"
-
-  #   # Actually there's an official way to check if the streamer is live or not[^1] using YouTube
-  #   # offical Data API, but it's costy that every search request costs you 100 credits. However
-  #   # you can try it online[^2] to see how it works.
-  #   #
-  #   # If you have accounts that registered YouTube developer program before 2017, and has more
-  #   # than 10 million credit quota, you can contact me t@sparanoid.com
-  #   #
-  #   # [1]: https://developers.google.com/youtube/v3/docs/search
-  #   # [2]: https://developers.google.com/youtube/v3/code_samples/code_snippets
-  #   if echo "$_body" | grep 'ytplayer' | grep -q '\\"isLive\\":true'; then
-  #     # Is live, break out of loop and continue to next step
-  #     IS_LIVE_CONTENT="true"
-  #     break
-  #   fi
-
-  #   # Also break out if the given URL is not a channel (probably a video or a playlist)
-  #   # This extra check could avoid downloading an upcoming stream when then "isLive" check above
-  #   # fails for some reason (like YouTube changes the `isLive` JSON key to something else)
-  #   if ! [ "$DL_TYPE" == "channel" ]; then
-  #     # This script now can also handle normal YouTube video, but there's no way to check if the
-  #     # given URL is a normal video or an upcoming stream, so we can just break out of the loop
-  #     # and fallback to youtube-dl to check whelter this URL is downloadable. And make sure it
-  #     # only execute once.
-  #     ONE_TIME="true"
-  #     break
-  #   fi
-
-  # else
-  #   __info "$(__yellow "Not a valid video page!")"
-  #   __info "You may get this warning due to internet interruption, continue running"
-
-  #   # NOTE: Although this is the natural logic to exit the program if we can't find specific
-  #   # element on this page that means it's not a valid video page. But in some rare cases, the
-  #   # original page may be down or unreachable for internet interruption or other network issues.
-  #   # So I decide to let the script continue to execute because this script is mainly focused on
-  #   # recording streams.
-
-  #   # exit 1
-  # fi
-
-  # Second check: use `youtube-dl` to check live state
-  # NOTE: please avoid adding additional paths in the -o (template) option, it doesn't work well
-  # and conflicts with my custom directory setup!
-  # I also need redirect stderr to stdout to catch any error during fetching URL
-  # Pros:
-  # - Accurate live state detection
-  # Cons:
-  # - Slow, youtube-dl will fire API requests to get more info it need to download videos
-  # - Your IP can get banned easily when running in download or notifier mode due to large amount of
-  #   API requests.
-  if [ "$CONTENT_STATE" != "invalid" ]; then
-
-    # Condition explain:
-    # Only run second check when:
-    # - The stream goes live that need a second check to ensure it's actually live
-    # - The stream goes offline that need a second check to ensure it's actually offline
-    if ([ "$CONTENT_STATE" != "offline" ] && [ "$_mode" != "lazy" ]) || \
-      ([ "$CONTENT_STATE" == "offline" ] && [ "$_mode" == "lazy" ])
-    then
-      __info "Re-checking via youtube-dl..."
-      METADATA=`youtube-dl --ignore-config --no-playlist --playlist-items 0 \
-        --skip-download --print-json --force-ipv4 --referer 'https://www.youtube.com/feed/subscriptions' \
-        -o '%(upload_date)s %(title)s (%(id)s).%(ext)s' \
-        "$_url" 2>&1`
-
-      # Check if returns nothing
-      if [ ! -z "$METADATA" ]; then
-        __debug "Got valid youtube-dl metadata"
-
-        # Check if it's a valid JSON return
-        if [[ "$METADATA" == '{'* ]]; then
-          # Unlike other part of the jq checks, I ignore the `| select(.!=null)` to explicitly
-          # return `null` to tell if it's a normal video or it just returns nothing
-          local _is_live=`echo "$METADATA" | jq -r '.is_live'`
-
-          # Parse metadata
-          func_process_youtube_metadata
-
-          # Map uploader name with pre-defined config
-          func_process_channel_mapping
-
-          # Finalize variables and paths then output summary
-          func_finalize_vars
-
-          if [ "$_is_live" == "true" ]; then
-            __debug "Got state: live";
-            CONTENT_STATE="live"
-          elif [ "$_is_live" == "null" ]; then
-            __debug "Got state: video";
-            CONTENT_STATE="video"
-          else
-            __info "youtube-dl does not returns a valid state";
-            CONTENT_STATE="invalid"
-          fi
-        else
-          __debug "$METADATA"
-          if [[ "$METADATA" =~ "This video is unavailable" ]]; then
-            # Suppress `video is unavailable` errors since they're common when stream is not live
-            __debug "This video is unavailable, maybe not live at the moment."
-            CONTENT_STATE="unavailable"
-          elif [[ "$METADATA" =~ "HTTP Error 404" ]]; then
-            __info "$(__yellow "Not a valid video page (Error 404)!")"
-            CONTENT_STATE="not_found"
-          elif [[ "$METADATA" =~ "HTTP Error 429" ]]; then
-            __info "$(__yellow "Your IP is limited by YouTube (Error 429)!")"
-            CONTENT_STATE="too_many_requests"
-          else
-            __info "$(__yellow "Unknown metadata")"
-            __info "$METADATA"
-            CONTENT_STATE="invalid"
-          fi
-        fi
-      else
-        __info "$(__yellow "Second check failed, not valid youtube-dl metadata")"
-        CONTENT_STATE="invalid"
-      fi
-
-      # Print current state for second check
-      __debug "Current state for second check: $(__yellow "$CONTENT_STATE")"
     fi
   fi
 }
