@@ -49,7 +49,6 @@
 # - [x] embed cover
 # - [x] add hostname to output
 # - [ ] dockerize this script
-# - [ ] bilibili live support
 # - [x] rewrite is_live detection logic
 #
 
