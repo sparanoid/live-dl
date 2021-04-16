@@ -55,7 +55,7 @@
 #
 # Variables
 #
-USER_AGENT="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36"
+USER_AGENT="Mozilla/5.0 (Macintosh; Intel Mac OS X 11_2_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.114 Safari/537.36"
 IMAGE_PROXY_BASE="https://experiments.sparanoid.net/imageproxy/"
 
 #
@@ -450,7 +450,7 @@ function func_check_state() {
     #
     # Debug commmand if YouTube changes its HTML structure in the future:
     # $ curl -s --compressed -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36" 'https://www.youtube.com/watch?v=j2z06YUbulk' | grep 'ytInitialPlayerResponse' | grep '<script' | grep 'responseContext' | perl -pe 's/^.*?ytInitialPlayerResponse = ({".*]});var .*/\1/g' | jq -r .
-  METADATA_CURL=`echo "$METADATA_CURL_RAW" | perl -pe 's/^.*?ytInitialPlayerResponse = (\{".*\]\});var .*/\1/g' | jq -r .`
+    METADATA_CURL=`echo "$METADATA_CURL_RAW" | perl -pe 's/^.*?ytInitialPlayerResponse = (\{".*\]\});var .*/\1/g' | jq -r .`
 
     # Check if returns nothing
     if [ ! -z "$METADATA_CURL" ]; then
