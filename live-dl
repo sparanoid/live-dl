@@ -1360,7 +1360,7 @@ Options:
   --mode, -m                  Running mode, default: download, available: metadata, notifier
   --filter                    Filter video titles. Only works in channel mode. Can be single string
                               or regex expression. ie. ASMR|歌
-  --output, -o                Base output directory, default: ~/Downloads
+  --output, -o                Base output directory, default: ./downloads
   --interval, -i              Loop interval, unit: second, default: 10.
                               Avoid setting this value too low or your IP may get banned by YouTube
   --ytdl-stream               Use youtube-dl to handle livestreams instead of streamlink
