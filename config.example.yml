@@ -9,12 +9,14 @@ config:
   # Output directory
   # There's no need to quote or escape your path, examples:
   #
+  # - ./downloads
+  # - /home/My Recordings
   # - ~/Downlaods
   # - ~/Files/VTuber Videos
-  # - ~/My Videos/Live Recordings
+  # - ~/Downloads/VTuber Recordings
   #
   # All examples above should work
-  output: ~/Downloads/VTuber Recordings
+  output: ./downloads
 
   # Loop interval, unit: second
   # Default: 10.
