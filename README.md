@@ -1,3 +1,5 @@
+[![Docker Pulls](https://img.shields.io/docker/pulls/sparanoid/live-dl.svg)](https://hub.docker.com/r/sparanoid/live-dl)
+
 # Live Downloader
 
 Download live streams from YouTube.
@@ -19,26 +21,79 @@ Download live streams from YouTube.
 - Download subtitles if available
 - Convert TS to MP4 automatically after downloading
 
-## Dependencies
+## System Requirements
 
-- aria2c
-- bash
-- exiv2
-- ffmpeg
-- jq
-- streamlink
-- youtube-dl
-- yq (python-yq)
+Tested on macOS up to 11.2.3, should be working on Ubuntu and RHEL. Running live-dl inside a container is recommended.
 
-Tested on macOS 10.15, should be working on RHEL/CentOS 7 and Ubuntu.
+## Run `live-dl` Inside a Container with Docker
 
-## Usage
+The simplest way to use live-dl is executing it inside a container. The following command will print the help message of live-dl:
+
+```bash
+docker run --rm -it sparanoid/live-dl:latest
+```
+
+Run live-dl in interactive mode:
+
+```bash
+docker run --rm -it \
+  sparanoid/live-dl:latest \
+  'UC1opHUrw8rvnsadT-iGp7Cg'
+```
+
+Run live-dl as a Docker daemon:
+
+```bash
+docker run --rm -itd \
+  sparanoid/live-dl:latest \
+  'UC1opHUrw8rvnsadT-iGp7Cg'
+```
+
+Run live-dl with host volume mounted:
+
+```bash
+# Mount host volume for download directory:
+docker run --rm -itd \
+  -v $(pwd)/downloads:/opt/live-dl/downloads \
+  sparanoid/live-dl:latest \
+  'UC1opHUrw8rvnsadT-iGp7Cg'
+
+# Mount host volume for custom config.yml:
+docker run --rm -itd \
+  -v $(pwd)/config.yml:/opt/live-dl/config.yml \
+  sparanoid/live-dl:latest \
+  'UC1opHUrw8rvnsadT-iGp7Cg'
+```
+
+## Run `live-dl` with Docker Compose
+
+```yaml
+version: '3'
+
+x-defaults: &defaults
+  image: sparanoid/live-dl:latest
+  restart: always
+  volumes:
+    - ./config.yml:/opt/live-dl/config.yml
+    - ./downloads:/opt/live-dl/downloads
+
+services:
+  minatoaqua:
+    <<: *defaults
+    command: https://www.youtube.com/channel/UC1opHUrw8rvnsadT-iGp7Cg --debug
+
+  uruharushia:
+    <<: *defaults
+    command: https://www.youtube.com/channel/UCl_gCybOJRIgOXw6Qb4qJzQ --debug
+```
+
+## Run `live-dl` Locally
 
 Run `./live-dl` without any parameter to print help message.
 
-You can run this script in background:
+You can run this script in background with `nohup`:
 
-```shell
+```bash
 # Start process
 nohup bash live-dl https://www.youtube.com/channel/UC1opHUrw8rvnsadT-iGp7Cg &>/tmp/live-dl-minatoaqua.log &
 
