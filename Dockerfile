@@ -7,6 +7,7 @@ RUN apk update -f \
     # gcc and libc-dev used by streamlink
     gcc \
     libc-dev \
+    openssl \
     perl \
     aria2 \
     exiv2 \
