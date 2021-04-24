@@ -19,7 +19,7 @@ config:
   output: ./downloads
 
   # Loop interval, unit: second
-  # Default: 10.
+  # Default: 10
   interval: 10
 
   # Skip dependency check

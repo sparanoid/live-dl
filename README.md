@@ -2,7 +2,7 @@
 
 # Live Downloader
 
-Download live streams from YouTube.
+Monitor and download live streams from YouTube.
 
 ## Features
 
