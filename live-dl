@@ -48,7 +48,7 @@
 # - [x] recording summary
 # - [x] embed cover
 # - [x] add hostname to output
-# - [ ] dockerize this script
+# - [x] dockerize this script
 # - [x] rewrite is_live detection logic
 #
 
