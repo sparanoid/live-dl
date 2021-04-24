@@ -440,7 +440,7 @@ function func_check_state() {
     # - More ban-proof compared to youtube-dl
     # Cons:
     # - Can get wrong live state due to page caching, network interrupts, etc.
-    local _body=$(curl -s --compressed -H "User-Agent: $USER_AGENT" "$_url")
+    local _body=$(curl -b cookies.txt -s --compressed -H "User-Agent: $USER_AGENT" "$_url")
 
     # Extract metadata from fetched page
     METADATA_CURL_RAW=`echo "$_body" | grep 'ytInitialPlayerResponse' | grep '<script' | grep 'responseContext'`
@@ -634,7 +634,7 @@ function func_check_state() {
         __info "Re-checking via youtube-dl..."
         METADATA=`youtube-dl --ignore-config --no-playlist --playlist-items 0 \
           --skip-download --print-json --referer 'https://www.youtube.com/feed/subscriptions' \
-          -o '%(upload_date)s %(title)s (%(id)s).%(ext)s' \
+          --cookies cookies.txt $YTDL_ARGS -o '%(upload_date)s %(title)s (%(id)s).%(ext)s' \
           "$_url" 2>&1`
 
         # Check if returns nothing
@@ -1161,6 +1161,7 @@ function func_download_youtube() {
         --no-part \
         -f 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best' \
         --retries 30 \
+        --cookies cookies.txt \
         $YTDL_ARGS -o "$OUTPUT_PATH.ts" \
         "${WEBPAGE_URL}" >> "$OUTPUT_PATH.log" 2>&1
     else
@@ -1200,6 +1201,7 @@ function func_download_youtube() {
         --sub-format best \
         --embed-subs \
         --retries 30 \
+        --cookies cookies.txt \
         $YTDL_ARGS -o "${OUTPUT_BASE}/%(upload_date)s %(title)s (%(id)s).%(ext)s" \
         "${WEBPAGE_URL}"
     else
@@ -1213,6 +1215,7 @@ function func_download_youtube() {
         --sub-lang en,zh-Hans,zh-Hant,ja \
         --sub-format best \
         --retries 30 \
+        --cookies cookies.txt \
         $YTDL_ARGS -o "${OUTPUT_BASE}/%(upload_date)s %(title)s (%(id)s).%(ext)s" \
         "${WEBPAGE_URL}"
     fi
