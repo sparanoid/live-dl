@@ -63,7 +63,15 @@ docker run --rm -itd \
   -v $(pwd)/config.yml:/opt/live-dl/config.yml \
   sparanoid/live-dl:latest \
   'UC1opHUrw8rvnsadT-iGp7Cg'
+
+# Mount host volume for custom cookies.txt:
+docker run --rm -itd \
+  -v $(pwd)/youtube.com_cookies.txt:/opt/live-dl/cookies.txt \
+  sparanoid/live-dl:latest \
+  'UC1opHUrw8rvnsadT-iGp7Cg'
 ```
+
+You can extract your current cookies simply via [Get cookies.txt](https://chrome.google.com/webstore/detail/bgaddhkoddajcdgocldbbfleckgcbcid) Google Chrome extension.
 
 ## Run `live-dl` with Docker Compose
 
