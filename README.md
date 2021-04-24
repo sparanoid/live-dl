@@ -83,6 +83,7 @@ x-defaults: &defaults
   restart: always
   volumes:
     - ./config.yml:/opt/live-dl/config.yml
+    - ./youtube.com_cookies.txt:/opt/live-dl/cookies.txt
     - ./downloads:/opt/live-dl/downloads
 
 services:
