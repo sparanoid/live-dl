@@ -38,7 +38,7 @@
 # - [x] mailgun setup guide
 # - [x] slack notification
 # - [x] telegram notification
-# - [ ] discord notification
+# - [x] discord notification
 # - [x] refine telegram multichannel support
 # - [x] channel name mapping
 # - [x] download base dir support
@@ -171,6 +171,10 @@ while [ $# -gt 0 ]; do
       ;;
     --skip-telegram)
       PARAM_SKIP_TELEGRAM=true
+      shift
+      ;;
+    --skip-discord)
+      PARAM_SKIP_DISCORD=true
       shift
       ;;
     -1|--once)
@@ -961,6 +965,148 @@ function func_send_telegram() {
   fi
 }
 
+function func_send_discord() {
+  local _type=$1
+
+  if [ "$SKIP_DISCORD" != "true" ]; then
+    CURRENT_DISCORD_WEBOOK="$CONFIG_DISCORD_WEBHOOK"
+    if [ "$UPLOADER_DISCORD_URL" ]; then
+      CURRENT_DISCORD_WEBOOK="$UPLOADER_DISCORD_URL"
+    fi
+
+    if [ "$CURRENT_DISCORD_WEBOOK" == "https://discord.com/api/webhooks/" ]; then
+      __info "$(__yellow "No Discord credentials found, skip sending Discord notification")"
+    else
+      __info "Sending Discord notification..."
+
+      if [ "$_type" == "start" ]; then
+        local _body='{
+          "content": "'"$UPLOADER"' goes live on '"$DL_PLATFORM"' '"$WEBPAGE_URL"'",
+          "embeds": [
+            {
+                "color": 16085214,
+                "thumbnail": {
+                  "url": "'$THUMBNAIL_CALC'"
+                },
+                "fields": [
+                    {
+                      "name": "Title",
+                      "value": "'"$FULLTITLE"'"
+                    },
+                    {
+                      "name": "Channel",
+                      "value": "['"$CHANNEL_ID"']('"$CHANNEL_URL"')"
+                    },
+                    {
+                      "name": "ID",
+                      "value": "['"$VIDEO_ID"']('"$WEBPAGE_URL"')",
+                      "inline": true
+                    },
+                    {
+                      "name": "Date",
+                      "value": "'"$UPLOAD_DATE"'",
+                      "inline": true
+                    }
+                ]
+            }
+          ]
+        }'
+      elif [ "$_type" == "stop" ]; then
+        local _SHOW_VIDEO_LENGTH='';
+        if [ "$FILE_SUMMARY_TRIM" ]; then
+          _SHOW_VIDEO_LENGTH=',
+                    {
+                      "name": "Video Duration (HH:MM:SS)",
+                      "value": "'$FILE_SUMMARY_DURATION_CALC'",
+                      "inline": true
+                    },
+                    {
+                      "name": "File Size",
+                      "value": "'$FILE_SUMMARY_SIZE_CALC'",
+                      "inline": true
+                    }';
+        fi
+        local _body='{
+          "content": "'"$UPLOADER"' stopped streaming on '"$DL_PLATFORM"' '"$WEBPAGE_URL"'",
+          "embeds": [
+            {
+                "color": 1376511,
+                "thumbnail": {
+                  "url": "'$THUMBNAIL_CALC'"
+                },
+                "fields": [
+                    {
+                      "name": "Title",
+                      "value": "'"$FULLTITLE"'"
+                    },
+                    {
+                      "name": "Channel",
+                      "value": "['"$CHANNEL_ID"']('"$CHANNEL_URL"')"
+                    },
+                    {
+                      "name": "Views",
+                      "value": "'"$VIEW_COUNT"'",
+                      "inline": true
+                    },
+                    {
+                      "name": "Likes",
+                      "value": "'"$LIKE_COUNT"'",
+                      "inline": true
+                    },
+                    {
+                      "name": "Dislikes",
+                      "value": "'"$DISLIKE_COUNT"'",
+                      "inline": true
+                    },
+                    {
+                      "name": "Average Rating",
+                      "value": "'"$AVERAGE_RATING"'",
+                      "inline": true
+                    }'$_SHOW_VIDEO_LENGTH'
+                ]
+            }
+          ]
+        }'
+      else
+        local _body='{
+          "content": "'"$UPLOADER"' goes live on '"$DL_PLATFORM"' '"$WEBPAGE_URL"'",
+          "embeds": [
+            {
+                "color": 16085214,
+                "thumbnail": {
+                  "url": "'$THUMBNAIL_CALC'"
+                },
+                "fields": [
+                    {
+                      "name": "Title",
+                      "value": "'"$FULLTITLE"'"
+                    },
+                    {
+                      "name": "Channel",
+                      "value": "['"$CHANNEL_ID"']('"$CHANNEL_URL"')"
+                    },
+                    {
+                      "name": "ID",
+                      "value": "['"$VIDEO_ID"']('"$WEBPAGE_URL"')",
+                      "inline": true
+                    },
+                    {
+                      "name": "Date",
+                      "value": "'"$UPLOAD_DATE"'",
+                      "inline": true
+                    }
+                ]
+            }
+          ]
+        }'
+      fi
+
+      curl -s -X POST -H 'Content-type: application/json' \
+        -d "$_body" "$CURRENT_DISCORD_WEBOOK"
+    fi
+  fi
+}
+
 # Detect profile file if not specified as environment variable
 # Borrowed from acme.sh
 function func_detect_profile() {
@@ -1035,6 +1181,13 @@ function func_process_channel_mapping() {
     else
       __debug "Channel name mapping $(__yellow "not found"), consider adding it in config.yml"
       __debug "I will use $(__yellow "$UPLOADER") for folder name, embedding metadata, etc."
+    fi
+
+    # Check if current uploader has dedicated Discord Webhook
+    UPLOADER_DISCORD_URL=`echo "$UPLOADER_MAPPED_RAW" | jq -r '.discord | select (.!=null)'`
+
+    if [ "${UPLOADER_DISCORD_URL}" ]; then
+      __debug "Discord URL Found: $(__green "$UPLOADER_DISCORD_URL")"
     fi
 
     # Check if current uploader has dedicated Telegram channel
@@ -1372,6 +1525,7 @@ Options:
   --skip-email                Skip sending email notification
   --skip-slack                Skip sending Slack notification
   --skip-telegram             Skip sending Telegram notification
+  --skip-discord              Skip sending Discord notification
   --create-alias, -a          Create program alias to your current shell profile
   --once, -1                  Run only once, default: false
   --debug                     Show debug output (aka. verbose mode), default: false"
@@ -1407,6 +1561,7 @@ CONFIG_SKIP_METADATA=`echo $CONFIG_RAW | jq -r '.config.skip_metadata | select(.
 CONFIG_SKIP_EMAIL=`echo $CONFIG_RAW | jq -r '.config.skip_email | select(.!=null)'`
 CONFIG_SKIP_SLACK=`echo $CONFIG_RAW | jq -r '.config.skip_slack | select(.!=null)'`
 CONFIG_SKIP_TELEGRAM=`echo $CONFIG_RAW | jq -r '.config.skip_telegram | select(.!=null)'`
+CONFIG_SKIP_DISCORD=`echo $CONFIG_RAW | jq -r '.config.skip_discord | select(.!=null)'`
 CONFIG_ONE_TIME=`echo $CONFIG_RAW | jq -r '.config.one_time | select(.!=null)'`
 CONFIG_EMAIL_PROVIDER=`echo $CONFIG_RAW | jq -r '.config.email_provider | select(.!=null)'`
 CONFIG_MAILGUN_API=`echo $CONFIG_RAW | jq -r '.config.mailgun.api | select(.!=null)'`
@@ -1419,6 +1574,7 @@ CONFIG_SES_RECEIPT=`echo $CONFIG_RAW | jq -r '.config.ses.receipt | select(.!=nu
 CONFIG_SLACK_WEBHOOK=`echo $CONFIG_RAW | jq -r '.config.slack.webhook | select(.!=null)'`
 CONFIG_TELEGRAM_BOT=`echo $CONFIG_RAW | jq -r '.config.telegram.bot | select(.!=null)'`
 CONFIG_TELEGRAM_CHANNEL=`echo $CONFIG_RAW | jq -r '.config.telegram.channel | select(.!=null)'`
+CONFIG_DISCORD_WEBHOOK=`echo $CONFIG_RAW | jq -r '.config.discord.webhook | select(.!=null)'`
 
 MODE="${PARAM_MODE:-$CONFIG_MODE}"
 FILTER="${PARAM_FILTER:-$CONFIG_FILTER}"
@@ -1432,6 +1588,7 @@ SKIP_METADATA="${PARAM_SKIP_METADATA:-$CONFIG_SKIP_METADATA}"
 SKIP_EMAIL="${PARAM_SKIP_EMAIL:-$CONFIG_SKIP_EMAIL}"
 SKIP_SLACK="${PARAM_SKIP_SLACK:-$CONFIG_SKIP_SLACK}"
 SKIP_TELEGRAM="${PARAM_SKIP_TELEGRAM:-$CONFIG_SKIP_TELEGRAM}"
+SKIP_DISCORD="${PARAM_SKIP_DISCORD:-$CONFIG_SKIP_DISCORD}"
 ONE_TIME="${PARAM_ONE_TIME:-$CONFIG_ONE_TIME}"
 URL_INPUT="$1"
 
@@ -1446,6 +1603,7 @@ __info "Skip embedding metadata        : ${SKIP_METADATA}"
 __info "Skip email notification        : ${SKIP_EMAIL}"
 __info "Skip Slack notification        : ${SKIP_SLACK}"
 __info "Skip Telegram notification     : ${SKIP_TELEGRAM}"
+__info "Skip Discord notification      : ${SKIP_DISCORD}"
 __info "Email provider                 : ${CONFIG_EMAIL_PROVIDER}"
 __info "One-time execution             : ${ONE_TIME}"
 
@@ -1504,9 +1662,11 @@ while true; do
         func_send_email "🔴 [YouTube] $UPLOADER - $FULLTITLE" "$SUMMARY_TRIM$_break$DESCRIPTION"
         func_send_slack "start"
         func_send_telegram "start"
+        func_send_discord "start"
         func_download_youtube
         func_finalize_download
         func_send_email "⚫️ [YouTube] $UPLOADER - $FULLTITLE" "$FILE_SUMMARY_TRIM"
+        func_send_discord "stop"
 
       #
       # Mode: metadata only
@@ -1521,6 +1681,7 @@ while true; do
       elif [ "$MODE" == "notifier" ]; then
         func_send_slack "start"
         func_send_telegram  "start"
+        func_send_discord "start"
         __info "Notifier mode, no video will be downloaded, continue monitoring..."
 
         while true; do
@@ -1530,6 +1691,7 @@ while true; do
             __info "Live stopped"
             func_send_slack "stop"
             func_send_telegram "stop"
+            func_send_discord "stop"
             break
           fi
 
