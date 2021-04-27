@@ -96,6 +96,9 @@ config:
     # Get channel ID via:
     # https://api.telegram.org/bot<API-access-token>/getUpdates?offset=0
     channel: 0000000000000
+  discord:
+    # Create your webhook at https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks
+    webhook: https://discord.com/api/webhooks/
 
 # Define your own channel map.
 # Channel map can provide channel specific options
@@ -106,6 +109,7 @@ map:
     bilibili: https://live.bilibili.com/456117
     telegram: -1001437419680
     timezone: America/Los_Angeles
+#   discord: https://discord.com/api/webhooks/
 
   - name: 湊あくあ
     mode: monitor
