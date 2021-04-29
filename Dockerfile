@@ -4,6 +4,8 @@ RUN apk update -f \
     && apk add --no-cache -f \
     bash \
     curl \
+    # coreutils used by numfmt
+    coreutils \
     # gcc and libc-dev used by streamlink
     gcc \
     libc-dev \
