@@ -1,6 +1,6 @@
-[![Docker Pulls](https://img.shields.io/docker/pulls/sparanoid/live-dl.svg)](https://hub.docker.com/r/sparanoid/live-dl)
-
 # Live Downloader
+
+[![Docker Pulls](https://img.shields.io/docker/pulls/sparanoid/live-dl.svg)](https://hub.docker.com/r/sparanoid/live-dl)
 
 Monitor and download live streams from YouTube.
 
