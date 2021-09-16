@@ -9,6 +9,8 @@ RUN apk update -f \
     # gcc and libc-dev used by streamlink
     gcc \
     libc-dev \
+    libxml2-dev \
+    libxslt-dev \
     openssl \
     perl \
     aria2 \
@@ -17,7 +19,7 @@ RUN apk update -f \
     jq \
     && rm -rf /var/cache/apk/*
 
-RUN pip install --upgrade streamlink yq youtube_dl
+RUN pip install --no-cache-dir --upgrade streamlink yq youtube_dl
 
 COPY ./live-dl /opt/live-dl/
 COPY ./config.example.yml /opt/live-dl/config.yml
