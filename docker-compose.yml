@@ -1,27 +1,28 @@
+# This compose file is mainly used for development.
+# Write your own base on the Run `live-dl` with Docker Compose section in readme
+
 version: '3'
 
 x-defaults: &defaults
   build:
     context: .
     dockerfile: Dockerfile
-  image: sparanoid/live-dl:latest
+  image: sparanoid/live-dl:local
   restart: always
   environment:
     - _PARAM_BASE_DIR=testdir
   volumes:
-    - ./config.yml:/opt/live-dl/config.yml
-    - ./cookies.txt:/opt/live-dl/cookies.txt
-    - ./downloads:/opt/live-dl/downloads
+    - .:/opt/live-dl
 
 services:
   # testlive:
   #   <<: *defaults
   #   command: https://www.youtube.com/watch?v=rQL0YJE04CY --debug
 
+  # uruharushia:
+  #   <<: *defaults
+  #   command: https://www.youtube.com/channel/UCl_gCybOJRIgOXw6Qb4qJzQ --debug
+
   minatoaqua:
     <<: *defaults
     command: https://www.youtube.com/channel/UC1opHUrw8rvnsadT-iGp7Cg --debug
-
-  uruharushia:
-    <<: *defaults
-    command: https://www.youtube.com/channel/UCl_gCybOJRIgOXw6Qb4qJzQ --debug
