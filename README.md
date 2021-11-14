@@ -123,6 +123,27 @@ ps aux | grep live-dl
 kill 94552
 ```
 
+## Configurations
+
+All configurations are defined in `config.yml` file. Some options can be overwritten by command line arguments.
+
+Run `./live-dl` without any parameter to print the help message.
+
+## Contributing
+
+It's recommended to use Docker for development and testing. You should simply mount all your files to the container.
+
+```bash
+# Method 1: Use compose file
+docker compose up [--build]
+
+# Method 2: Use Dockerfile
+docker build -t sparanoid/live-dl:local .
+docker run -it -v $(pwd):/opt/live-dl sparanoid/live-dl:local
+```
+
+If you'd like to run it locally. You need to install all the dependencies defined in `live-dl`.
+
 ## License
 
 AGPL-3.0
