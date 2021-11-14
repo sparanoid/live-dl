@@ -4,6 +4,9 @@
 
 Monitor and download live streams from YouTube.
 
+- [Docker Hub](https://hub.docker.com/r/sparanoid/live-dl)
+- [ghcr.io](https://github.com/users/sparanoid/packages/container/package/live-dl)
+
 ## Features
 
 - URL guessing: this script will try its best to guess what you pass to it, the following URLs/URIs should all work:
