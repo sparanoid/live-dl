@@ -9,6 +9,9 @@ on:
   pull_request:
     branches:
       - 'master'
+  schedule:
+    - cron: '21 12 * * 1'
+  workflow_dispatch:
 
 env:
   DOCKERHUB_SLUG: sparanoid/live-dl
