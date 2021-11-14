@@ -564,7 +564,13 @@ function func_check_state() {
       # Print current state for first check
       __debug "Current state for first check: $(__yellow "$CONTENT_STATE")"
     else
-      __info "$(__yellow "Not a valid page, something wrong with your internet connection?")"
+      # Nov 14, 2021: YouTube no longer retuns a valid JSON response for /live channel URL when the
+      # channel is not live. So just silent fail here.
+      if ([ "$DL_TYPE" == "channel" ] && [ "$DL_PLATFORM" == "YouTube" ]); then
+        __debug "$(__yellow "Channel page is offline with no JSON extracted")"
+      else
+        __info "$(__yellow "Not a valid page, something wrong with your internet connection?")"
+      fi
     fi
 
     # Old method:
