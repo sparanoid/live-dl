@@ -1387,7 +1387,7 @@ function func_download_bilibili() {
 function func_finalize_download() {
   __info "Stop downloading"
 
-  if [ ! "$SKIP_CONVERT" ]; then
+  if [ "$SKIP_CONVERT" == "false" ]; then
 
     if [ "$CONTENT_STATE" == "live" ]; then
       # Convert from TS to MP4 (will override existing with -y option)
@@ -1406,7 +1406,7 @@ function func_finalize_download() {
     OUTPUT_PATH_EXT=$OUTPUT_PATH.ts
   fi
 
-  if [ ! "$SKIP_METADATA" ]; then
+  if [ "$SKIP_METADATA" == "false" ]; then
     __info "Trying to write metadata and artwork"
 
     # Write metadata to MP4 if exists (will override existing with -y option)
