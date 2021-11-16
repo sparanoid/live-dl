@@ -1,4 +1,4 @@
-# Live Downloader
+# live-dl
 
 [![Docker Pulls](https://img.shields.io/docker/pulls/sparanoid/live-dl.svg)](https://hub.docker.com/r/sparanoid/live-dl)
 
