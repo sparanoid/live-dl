@@ -1544,7 +1544,6 @@ Options:
   --ytdl-stream               Use youtube-dl to handle livestreams instead of streamlink
   --ytdl-args                 Passing additional options to youtube-dl. options should be quoted
   --streamlink-args           Passing additional options to streamlink. options should be quoted
-  --skip-check, -c            Skip dependency check, default: false
   --skip-convert              Skip converting TS file to MP4
   --skip-metadata             Skip embedding metadata
   --skip-email                Skip sending email notification
