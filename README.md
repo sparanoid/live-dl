@@ -31,7 +31,7 @@ Tested on macOS up to 11.2.3, should be working on Ubuntu and RHEL. Running live
 ## Available Tags
 
 - `latest`: the latest tagged release
-- `edge`: the nightly build with latest youtube-dl and streamlink bundles
+- `nightly`: the nightly build with latest youtube-dl and streamlink bundles
 
 ## Run `live-dl` Inside a Container with Docker
 
