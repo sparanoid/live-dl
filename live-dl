@@ -58,8 +58,7 @@
 BIN_VERSION="1.0.4"
 
 # DEPRECATED: use `user_agent` in `config.yml` instead. This is for backward compatibility.
-USER_AGENT="Mozilla/5.0 (Macintosh; Intel Mac OS X 11_2_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.114 Safari/537.36"
-IMAGE_PROXY_BASE="https://experiments.sparanoid.net/imageproxy/"
+LEGACY_USER_AGENT="Mozilla/5.0 (Macintosh; Intel Mac OS X 11_2_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.114 Safari/537.36"
 
 #
 # Functions
@@ -132,6 +131,11 @@ while [ $# -gt 0 ]; do
       ;;
     -u|--user-agent)
       PARAM_USER_AGENT="$2"
+      shift
+      shift
+      ;;
+    --image-proxy)
+      PARAM_IMAGE_PROXY="$2"
       shift
       shift
       ;;
@@ -919,7 +923,7 @@ function func_send_telegram() {
                 ],
                 [
                   {"text": "View channel", "url": "'"$CHANNEL_URL"'"},
-                  {"text": "View artwork", "url": "'"$IMAGE_PROXY_BASE$THUMBNAIL_CALC"'"}
+                  {"text": "View artwork", "url": "'"$IMAGE_PROXY$THUMBNAIL_CALC"'"}
                 ]
               ]
             },
@@ -1499,6 +1503,7 @@ Options:
                               WARNING: Do not set this value too low or your IP may get rate
                               limited by YouTube
   --user-agent, -u            Custom User-Agent for cURL requests
+  --image-proxy               Custom image proxy service for notifications
   --ytdl-stream               Use youtube-dl to handle livestreams instead of streamlink
   --ytdl-args                 Passing additional options to youtube-dl. options should be quoted
   --streamlink-args           Passing additional options to streamlink. options should be quoted
@@ -1536,6 +1541,7 @@ CONFIG_FILTER=`echo $CONFIG_RAW | jq -r '.config.filter | select(.!=null)'`
 CONFIG_BASE_DIR=`echo $CONFIG_RAW | jq -r .config.output | sed -e 's/~/'"$HOME_EXPANDED"'/g'`
 CONFIG_INTERVAL=`echo $CONFIG_RAW | jq -r '.config.interval | select(.!=null)'`
 CONFIG_USER_AGENT=`echo $CONFIG_RAW | jq -r '.config.user_agent | select(.!=null)'`
+CONFIG_IMAGE_PROXY=`echo $CONFIG_RAW | jq -r '.config.image_proxy | select(.!=null)'`
 CONFIG_YTDL_STREAM=`echo $CONFIG_RAW | jq -r '.config.ytdl_stream | select(.!=null)'`
 CONFIG_YTDL_ARGS=`echo $CONFIG_RAW | jq -r '.config.ytdl_args | select(.!=null)'`
 CONFIG_STREAMLINK_ARGS=`echo $CONFIG_RAW | jq -r '.config.streamlink_args | select(.!=null)'`
@@ -1563,7 +1569,9 @@ MODE="${PARAM_MODE:-$CONFIG_MODE}"
 FILTER="${PARAM_FILTER:-$CONFIG_FILTER}"
 BASE_DIR="${_PARAM_BASE_DIR:-$CONFIG_BASE_DIR}"
 INTERVAL="${PARAM_INTERVAL:-$CONFIG_INTERVAL}"
-USER_AGENT="${PARAM_USER_AGENT:-$CONFIG_USER_AGENT}"
+USER_AGENT_BACKWARD_COMPATIBILITY="${CONFIG_USER_AGENT:-$LEGACY_USER_AGENT}"
+USER_AGENT="${PARAM_USER_AGENT:-$USER_AGENT_BACKWARD_COMPATIBILITY}"
+IMAGE_PROXY="${PARAM_IMAGE_PROXY:-$CONFIG_IMAGE_PROXY}"
 YTDL_STREAM="${PARAM_YTDL_STREAM:-$CONFIG_YTDL_STREAM}"
 YTDL_ARGS="${PARAM_YTDL_ARGS:-$CONFIG_YTDL_ARGS}"
 STREAMLINK_ARGS="${PARAM_STREAMLINK_ARGS:-$CONFIG_STREAMLINK_ARGS}"
@@ -1581,6 +1589,7 @@ __info "URL (URI) to process           : ${URL_INPUT}"
 __info "Mode                           : ${MODE}"
 __info "Output base dir                : ${BASE_DIR}"
 __info "Run interval (when loop)       : ${INTERVAL}"
+__info "Custom image proxy             : ${IMAGE_PROXY}"
 __info "Use youtube-dl for streams     : ${YTDL_STREAM}"
 __info "Skip convert                   : ${SKIP_CONVERT}"
 __info "Skip embedding metadata        : ${SKIP_METADATA}"
