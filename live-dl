@@ -150,10 +150,6 @@ while [ $# -gt 0 ]; do
       PARAM_DEBUG=true
       shift
       ;;
-    -a|--create-alias)
-      PARAM_CREATE_ALIAS=true
-      shift
-      ;;
     --skip-convert)
       PARAM_SKIP_CONVERT=true
       shift
@@ -334,16 +330,6 @@ function func_check_deps() {
     fi
   fi
 }
-
-# Create shell alias with `-a|--create-alias` specified
-CREATE_ALIAS="${PARAM_CREATE_ALIAS:-"false"}"
-if [ "$CREATE_ALIAS" == "true" ]; then
-  __info "Creating alias..."
-  _profile="$(func_detect_profile)"
-  _cwd="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-  _alias="alias live-dl='$_cwd/live-dl'"
-  grep -qxF "$_alias" "$_profile" || echo "$_alias" >> "$_profile"
-fi
 
 function func_create_url() {
   # Create correct URL/URI based on user input
@@ -1117,42 +1103,6 @@ function func_send_discord() {
   fi
 }
 
-# Detect profile file if not specified as environment variable
-# Borrowed from acme.sh
-function func_detect_profile() {
-  if [ -n "$PROFILE" -a -f "$PROFILE" ]; then
-    echo "$PROFILE"
-    return
-  fi
-
-  DETECTED_PROFILE=''
-  SHELLTYPE="$(basename "/$SHELL")"
-
-  if [ "$SHELLTYPE" = "bash" ]; then
-    if [ -f "$HOME/.bashrc" ]; then
-      DETECTED_PROFILE="$HOME/.bashrc"
-    elif [ -f "$HOME/.bash_profile" ]; then
-      DETECTED_PROFILE="$HOME/.bash_profile"
-    fi
-  elif [ "$SHELLTYPE" = "zsh" ]; then
-    DETECTED_PROFILE="$HOME/.zshrc"
-  fi
-
-  if [ -z "$DETECTED_PROFILE" ]; then
-    if [ -f "$HOME/.profile" ]; then
-      DETECTED_PROFILE="$HOME/.profile"
-    elif [ -f "$HOME/.bashrc" ]; then
-      DETECTED_PROFILE="$HOME/.bashrc"
-    elif [ -f "$HOME/.bash_profile" ]; then
-      DETECTED_PROFILE="$HOME/.bash_profile"
-    elif [ -f "$HOME/.zshrc" ]; then
-      DETECTED_PROFILE="$HOME/.zshrc"
-    fi
-  fi
-
-  echo "$DETECTED_PROFILE"
-}
-
 function func_process_youtube_metadata() {
   # Extract video info from JSON
   VIDEO_ID=$(echo "$METADATA" | jq -r '.id')
@@ -1550,7 +1500,6 @@ Options:
   --skip-slack                Skip sending Slack notification
   --skip-telegram             Skip sending Telegram notification
   --skip-discord              Skip sending Discord notification
-  --create-alias, -a          Create program alias to your current shell profile
   --once, -1                  Run only once, default: false
   --debug                     Show debug output (aka. verbose mode), default: false
   --version -v                Show script version"
