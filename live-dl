@@ -55,6 +55,7 @@
 #
 # Variables
 #
+BIN_VERSION="1.0.4"
 USER_AGENT="Mozilla/5.0 (Macintosh; Intel Mac OS X 11_2_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.114 Safari/537.36"
 IMAGE_PROXY_BASE="https://experiments.sparanoid.net/imageproxy/"
 
@@ -179,6 +180,10 @@ while [ $# -gt 0 ]; do
       ;;
     -1|--once)
       PARAM_ONE_TIME=true
+      shift
+      ;;
+    -v|--version)
+      PARAM_SHOW_VERSION=true
       shift
       ;;
     *) # other unknown options
@@ -1495,9 +1500,20 @@ if [ "$INIT_SCRIPT" == "true" ]; then
   exit 0
 fi
 
+# Show current version
+SHOW_VERSION="${PARAM_SHOW_VERSION:-"false"}"
+if [ "$SHOW_VERSION" == "true" ]; then
+  echo "$BIN_VERSION"
+  exit 0
+fi
+
 # Print usage if no URL passed
 if [ ! -n "$1" ]; then
-  echo "Usage: $0 url [options]
+  echo "live-dl v$BIN_VERSION
+by Tunghsiao Liu and contributers:
+https://github.com/sparanoid/live-dl/graphs/contributors
+
+Usage: $0 url [options]
 
 Run $0 --init to initialize this script and download required dependencies.
 
@@ -1516,11 +1532,15 @@ Examples:
 
 Options:
   --mode, -m                  Running mode, default: download, available: metadata, notifier
+                              - download: monitor and download streams
+                              - metadata: only download metadata (JSON output and thumbnail)
+                              - notifier: send notifications without downloading
   --filter                    Filter video titles. Only works in channel mode. Can be single string
                               or regex expression. ie. ASMR|歌
   --output, -o                Base output directory, default: ./downloads
   --interval, -i              Loop interval, unit: second, default: 10.
-                              Avoid setting this value too low or your IP may get banned by YouTube
+                              WARNING: Do not set this value too low or your IP may get rate
+                              limited by YouTube
   --ytdl-stream               Use youtube-dl to handle livestreams instead of streamlink
   --ytdl-args                 Passing additional options to youtube-dl. options should be quoted
   --streamlink-args           Passing additional options to streamlink. options should be quoted
@@ -1533,7 +1553,8 @@ Options:
   --skip-discord              Skip sending Discord notification
   --create-alias, -a          Create program alias to your current shell profile
   --once, -1                  Run only once, default: false
-  --debug                     Show debug output (aka. verbose mode), default: false"
+  --debug                     Show debug output (aka. verbose mode), default: false
+  --version -v                Show script version"
   exit 1
 fi
 
