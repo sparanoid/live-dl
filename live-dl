@@ -55,7 +55,7 @@
 #
 # Variables
 #
-BIN_VERSION="1.0.4"
+BIN_VERSION="1.1.0"
 
 # DEPRECATED: use `user_agent` in `config.yml` instead. This is for backward compatibility.
 LEGACY_USER_AGENT="Mozilla/5.0 (Macintosh; Intel Mac OS X 11_2_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.114 Safari/537.36"
