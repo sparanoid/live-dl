@@ -10,7 +10,7 @@ on:
     branches:
       - 'master'
   schedule:
-    - cron: '21 12 * * 1'
+    - cron: '21 12 * * *'
   workflow_dispatch:
 
 env:
