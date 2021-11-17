@@ -26,6 +26,12 @@ config:
   # Default: Mozilla/5.0 (Macintosh; Intel Mac OS X 11_2_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.114 Safari/537.36
   user_agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 11_2_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.114 Safari/537.36
 
+  # Custom image proxy service for notifications
+  # This can be useful for post-processing thumbnails using imageproxy:
+  # https://github.com/willnorris/imageproxy
+  # Default: ""
+  image_proxy: ""
+
   # Skip dependency check
   # Default: false
   skip_check: false
