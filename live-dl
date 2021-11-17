@@ -677,6 +677,8 @@ function func_check_state() {
             __debug "$METADATA"
             if [[ "$METADATA" =~ "This video is unavailable" ]]; then
               # Suppress `video is unavailable` errors since they're common when stream is not live
+              # NOTE: Nov 17, 2021: Now YouTube no longer returns any JSON response for offline channels
+              # so all offline state will fallback to `invalid` at the moment
               __debug "This video is unavailable, maybe not live at the moment."
               CONTENT_STATE="unavailable"
             elif [[ "$METADATA" =~ "HTTP Error 404" ]]; then
@@ -1617,11 +1619,11 @@ func_create_url "$URL_INPUT"
 while true; do
   __info "Checking $DL_URL..."
 
-  # Monitor live streams of specific channel
+  # Monitor live streams of a specific channel
   while true; do
     # Check if url types and live available
     # After creating URL with func_create_url, I need to further process the URL to determine
-    # the type (video, live stream) and state (is live or not ) of the given URL
+    # the type (video, live stream) and state (is live or not) of the given URL
     func_check_state "$DL_URL"
 
     if [ "$CONTENT_STATE" == "live" ]; then
@@ -1690,7 +1692,7 @@ while true; do
         while true; do
           func_check_state "$DL_URL" "lazy"
 
-          if [ "$CONTENT_STATE" == "unavailable" ]; then
+          if [ "$CONTENT_STATE" != "live" ]; then
             __info "Live stopped"
             func_send_slack "stop"
             func_send_telegram "stop"
