@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Live Downloader
+# live-dl
 # Download live streams from YouTube
 #
 # Tunghsiao Liu <t@sparanoid.com>
@@ -807,7 +807,7 @@ function func_send_slack() {
                   "value": "'"$UPLOAD_DATE"'",
                   "short": true
                 }
-              ]
+              ]topped streamin
             }
           ]
         }'
@@ -1659,7 +1659,6 @@ while true; do
         func_download_youtube
         func_finalize_download
         func_send_email "⚫️ [YouTube] $UPLOADER - $FULLTITLE" "$FILE_SUMMARY_TRIM"
-        func_send_discord "stop"
 
       #
       # Mode: metadata only
@@ -1682,9 +1681,6 @@ while true; do
 
           if [ "$CONTENT_STATE" != "live" ]; then
             __info "Live stopped"
-            func_send_slack "stop"
-            func_send_telegram "stop"
-            func_send_discord "stop"
             break
           fi
 
