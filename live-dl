@@ -807,7 +807,7 @@ function func_send_slack() {
                   "value": "'"$UPLOAD_DATE"'",
                   "short": true
                 }
-              ]topped streamin
+              ]
             }
           ]
         }'
