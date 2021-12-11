@@ -19,7 +19,7 @@ RUN apk update -f \
     jq \
     && rm -rf /var/cache/apk/*
 
-RUN pip install --no-cache-dir --upgrade streamlink yq youtube_dl
+RUN pip install --no-cache-dir --upgrade streamlink yq yt-dlp
 
 COPY ./live-dl /opt/live-dl/
 COPY ./config.example.yml /opt/live-dl/config.yml
