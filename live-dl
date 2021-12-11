@@ -641,7 +641,7 @@ function func_check_state() {
         ([ "$CONTENT_STATE" == "offline" ] && [ "$_mode" == "lazy" ])
       then
         __info "Re-checking via yt-dlp..."
-        METADATA=`yt-dlp --ignore-config --no-playlist --playlist-items 0 \
+        METADATA=`yt-dlp --ignore-config --no-playlist --playlist-items 0 --no-warnings \
           --skip-download --print-json --referer 'https://www.youtube.com/feed/subscriptions' \
           --cookies cookies.txt $YTDL_ARGS -o '%(upload_date)s %(title)s (%(id)s).%(ext)s' \
           "$_url" 2>&1`
@@ -668,7 +668,7 @@ function func_check_state() {
             if [ "$_is_live" == "true" ]; then
               __debug "Got state: live";
               CONTENT_STATE="live"
-            elif [ "$_is_live" == "null" ]; then
+            elif [ "$_is_live" == "false" ]; then
               __debug "Got state: video";
               CONTENT_STATE="video"
             else
@@ -1326,7 +1326,7 @@ function func_download_youtube() {
         --embed-subs \
         --retries 30 \
         --cookies cookies.txt \
-        $YTDL_ARGS -o "${OUTPUT_BASE}/%(upload_date)s %(title)s (%(id)s).%(ext)s" \
+        $YTDL_ARGS -o "$OUTPUT_PATH.ts" \
         "${WEBPAGE_URL}"
     else
       yt-dlp \
@@ -1340,7 +1340,7 @@ function func_download_youtube() {
         --sub-format best \
         --retries 30 \
         --cookies cookies.txt \
-        $YTDL_ARGS -o "${OUTPUT_BASE}/%(upload_date)s %(title)s (%(id)s).%(ext)s" \
+        $YTDL_ARGS -o "$OUTPUT_PATH.mp4" \
         "${WEBPAGE_URL}"
     fi
   else
@@ -1366,16 +1366,16 @@ function func_finalize_download() {
 
       # Remove original TS file
       rm -f "$OUTPUT_PATH.ts"
-
-      # Assign finalized path for later use
-      OUTPUT_PATH_EXT=$OUTPUT_PATH.mp4
     fi
+
+    # Assign finalized path for later use
+    OUTPUT_PATH_EXT=$OUTPUT_PATH.mp4
   else
     OUTPUT_PATH_EXT=$OUTPUT_PATH.ts
   fi
 
   if [ "$SKIP_METADATA" == "false" ]; then
-    __info "Trying to write metadata and artwork"
+    __info "Trying to write metadata"
 
     # Write metadata to MP4 if exists (will override existing with -y option)
     if [ -f "$OUTPUT_PATH.mp4" ]; then
@@ -1391,28 +1391,6 @@ function func_finalize_download() {
       rm -f "$OUTPUT_PATH.mp4" && mv "$OUTPUT_PATH-metadata.mp4" "$OUTPUT_PATH.mp4"
     else
       __info "$(__yellow "Output file not exists, skip writing metadata.")"
-    fi
-
-    # Writing artwork cover if exists
-    # I have to emabed artwork and metadata in two separate steps because FFmpeg can't pipe these
-    # two steps into one. And AtomicParsley also doesn't support medatada in-file writing.
-    if [ -f "$OUTPUT_PATH.mp4" ]; then
-      __info "Writing artwork"
-
-      # Check if artwork avaiable
-      if [ -f "$OUTPUT_PATH.jpg" ]; then
-        ffmpeg -i "$OUTPUT_PATH.mp4" -y \
-          -i "$OUTPUT_PATH.jpg" \
-          -map 1 -map 0 \
-          -codec copy \
-          -disposition:0 attached_pic \
-          "$OUTPUT_PATH-artwork.mp4" >> "$OUTPUT_PATH.log" 2>&1
-        rm -f "$OUTPUT_PATH.mp4" && mv "$OUTPUT_PATH-artwork.mp4" "$OUTPUT_PATH.mp4"
-      else
-        __info "$(__yellow "Artwork missing, this is a rare case, please report at my GitHub.")"
-      fi
-    else
-      __info "$(__yellow "Output file not exists, skip embedding artwork.")"
     fi
   fi
 
