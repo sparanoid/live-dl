@@ -16,7 +16,7 @@
 # - ffmpeg
 # - jq
 # - streamlink
-# - youtube-dl
+# - yt-dlp
 # - yq (python-yq)
 #
 
@@ -233,15 +233,15 @@ function func_check_deps() {
     fi
   fi
 
-  if command -v youtube-dl >/dev/null 2>&1 ; then
-    __info "$(__green "Found"): youtube-dl $(youtube-dl --version | head -n 1)"
+  if command -v yt-dlp >/dev/null 2>&1 ; then
+    __info "$(__green "Found"): yt-dlp $(yt-dlp --version | head -n 1)"
   else
-    __info "youtube-dl not found, trying to install..."
+    __info "yt-dlp not found, trying to install..."
     if [ "$OSTYPE" == "linux-gnu" ]; then
-      curl -L https://yt-dl.org/downloads/latest/youtube-dl -o /usr/local/bin/youtube-dl
-      chmod a+rx /usr/local/bin/youtube-dl
+      curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
+      chmod a+rx /usr/local/bin/yt-dlp
     elif [[ "$OSTYPE" == "darwin"* ]]; then
-      brew install ffmpeg
+      brew install yt-dlp
     else
       __info "No platform/architecture supported, please install it manually."
     fi
@@ -442,8 +442,8 @@ function func_check_state() {
 
     # First check: use curl to check HTML pages for live state
     # Pros:
-    # - Fast, no additional API requests compared to youtube-dl
-    # - More ban-proof compared to youtube-dl
+    # - Fast, no additional API requests compared to yt-dlp
+    # - More ban-proof compared to yt-dlp
     # Cons:
     # - Can get wrong live state due to page caching, network interrupts, etc.
     METADATA_CURL_RAW=$(curl -b cookies.txt -s --compressed -H "User-Agent: $USER_AGENT" "$_url")
@@ -498,7 +498,7 @@ function func_check_state() {
         __debug "Scheduled Time: $_date_calc ($UPCOMING_TIME)"
       fi
 
-      # Get some metadata first, I will retrieve more later using youtube-dl
+      # Get some metadata first, I will retrieve more later using yt-dlp
       VIDEO_ID=$(echo "$METADATA_CURL" | jq -r '.videoDetails.videoId')
       FULLTITLE=$(echo "$METADATA_CURL" | jq -r '.videoDetails.title')
       DESCRIPTION=$(echo "$METADATA_CURL" | jq -r '.videoDetails.shortDescription')
@@ -511,14 +511,14 @@ function func_check_state() {
 
       # NOTE: Oct 25, 2020
       # With recent changes of YouTube API, you cannot get live JSON from a /live channel URL.
-      # This causes empty response during youtube-dl second check. So I redirect channel page check to
+      # This causes empty response during yt-dlp second check. So I redirect channel page check to
       # video page check after I got the specific video ID.
       if ([ "$DL_TYPE" == "channel" ] && [ "$DL_PLATFORM" == "YouTube" ]); then
         _url="https://www.youtube.com/watch?v=$VIDEO_ID"
       fi
 
       # If I got `isLive: true` in first check, let me assume it's live but I can't trust it so I
-      # will do a secound check using youtube-dl later with this flag.
+      # will do a secound check using yt-dlp later with this flag.
       if [ "$IS_LIVE" == "true" ]; then
         __info "cURL check seems goes live now, continue checking..."
 
@@ -602,7 +602,7 @@ function func_check_state() {
     #   if ! [ "$DL_TYPE" == "channel" ]; then
     #     # This script now can also handle normal YouTube video, but there's no way to check if the
     #     # given URL is a normal video or an upcoming stream, so we can just break out of the loop
-    #     # and fallback to youtube-dl to check whelter this URL is downloadable. And make sure it
+    #     # and fallback to yt-dlp to check whelter this URL is downloadable. And make sure it
     #     # only execute once.
     #     ONE_TIME="true"
     #     break
@@ -621,14 +621,14 @@ function func_check_state() {
     #   # exit 1
     # fi
 
-    # Second check: use `youtube-dl` to check live state
+    # Second check: use `yt-dlp` to check live state
     # NOTE: please avoid adding additional paths in the -o (template) option, it doesn't work well
     # and conflicts with my custom directory setup!
     # I also need redirect stderr to stdout to catch any error during fetching URL
     # Pros:
     # - Accurate live state detection
     # Cons:
-    # - Slow, youtube-dl will fire API requests to get more info it need to download videos
+    # - Slow, yt-dlp will fire API requests to get more info it need to download videos
     # - Your IP can get banned easily when running in download or notifier mode due to large amount of
     #   API requests.
     if [ "$CONTENT_STATE" != "invalid" ]; then
@@ -640,15 +640,15 @@ function func_check_state() {
       if ([ "$CONTENT_STATE" != "offline" ] && [ "$_mode" != "lazy" ]) || \
         ([ "$CONTENT_STATE" == "offline" ] && [ "$_mode" == "lazy" ])
       then
-        __info "Re-checking via youtube-dl..."
-        METADATA=`youtube-dl --ignore-config --no-playlist --playlist-items 0 \
+        __info "Re-checking via yt-dlp..."
+        METADATA=`yt-dlp --ignore-config --no-playlist --playlist-items 0 --no-warnings \
           --skip-download --print-json --referer 'https://www.youtube.com/feed/subscriptions' \
           --cookies cookies.txt $YTDL_ARGS -o '%(upload_date)s %(title)s (%(id)s).%(ext)s' \
           "$_url" 2>&1`
 
         # Check if returns nothing
         if [ ! -z "$METADATA" ]; then
-          __debug "Got valid youtube-dl metadata"
+          __debug "Got valid yt-dlp metadata"
 
           # Check if it's a valid JSON return
           if [[ "$METADATA" == '{'* ]]; then
@@ -668,11 +668,11 @@ function func_check_state() {
             if [ "$_is_live" == "true" ]; then
               __debug "Got state: live";
               CONTENT_STATE="live"
-            elif [ "$_is_live" == "null" ]; then
+            elif [ "$_is_live" == "false" ]; then
               __debug "Got state: video";
               CONTENT_STATE="video"
             else
-              __info "youtube-dl does not returns a valid state";
+              __info "yt-dlp does not returns a valid state";
               CONTENT_STATE="invalid"
             fi
           else
@@ -696,7 +696,7 @@ function func_check_state() {
             fi
           fi
         else
-          __info "$(__yellow "Second check failed, not valid youtube-dl metadata")"
+          __info "$(__yellow "Second check failed, not valid yt-dlp metadata")"
           CONTENT_STATE="invalid"
         fi
 
@@ -1215,8 +1215,8 @@ function func_finalize_vars() {
   echo "$METADATA_PRETTIFIED" > "$OUTPUT_PATH.json"
 
   # Download thumbnail
-  # youtube-dl has built-in thumbnail download feature via --write-all-thumbnails but it's not
-  # perfect due to the limitation of YouTube API, youtube-dl will only get `hqdefault.jpg` for
+  # yt-dlp has built-in thumbnail download feature via --write-all-thumbnails but it's not
+  # perfect due to the limitation of YouTube API, yt-dlp will only get `hqdefault.jpg` for
   # finished streams (live streams not affected) because offical API only returns this size even
   # higher resolution is available (`maxresdefault.jpg`). So I created some additional checks here.
   #
@@ -1229,14 +1229,14 @@ function func_finalize_vars() {
   # changes it to another (thumbnail-B) when stream goes live. `maxresdefault_live.jpg` seems always
   # returns thumbnail-A while `maxresdefault.jpg` can get the correct thumbnail-B.
   #
-  # First download thumbnail provided from youtube-dl
+  # First download thumbnail provided from yt-dlp
   THUMBNAIL_CALC="$THUMBNAIL"
   curl -s "$THUMBNAIL_CALC" -o "$OUTPUT_PATH.jpg"
 
   # Check thumbnail width
   THUMB_W=`exiv2 "$OUTPUT_PATH.jpg" | awk -F: '/Image size/ {print $2}' | cut -dx -f1 | tr -d ' '`
   if [ "$THUMB_W" -lt "1280" ]; then
-    __info "Thumbnail ($THUMBNAIL_CALC) downloeded via youtube-dl is too small, try our own method"
+    __info "Thumbnail ($THUMBNAIL_CALC) downloeded via yt-dlp is too small, try our own method"
 
     # Re-assign thumbnail URL
     THUMBNAIL_CALC="https://i.ytimg.com/vi/$VIDEO_ID/maxresdefault.jpg"
@@ -1278,7 +1278,7 @@ function func_download_youtube() {
 
   if [ "$CONTENT_STATE" == "live" ]; then
     if [ "$YTDL_STREAM" == "true" ]; then
-      youtube-dl \
+      yt-dlp \
         --ignore-config \
         --hls-prefer-native \
         --hls-use-mpegts \
@@ -1308,10 +1308,10 @@ function func_download_youtube() {
   elif [ "$CONTENT_STATE" == "video" ]; then
     if [ "$DL_TYPE" == "playlist" ]; then
       # TODO: You have to loop over all the videos to add metadata and thumbnail manually.
-      # Or you can add the following parameters to handle it using youtube-dl automatically:
+      # Or you can add the following parameters to handle it using yt-dlp automatically:
       #   --embed-thumbnail # requires AtomicParsley
       #   --add-metadata
-      youtube-dl \
+      yt-dlp \
         --ignore-config \
         --download-archive archive.txt \
         --embed-thumbnail \
@@ -1326,10 +1326,10 @@ function func_download_youtube() {
         --embed-subs \
         --retries 30 \
         --cookies cookies.txt \
-        $YTDL_ARGS -o "${OUTPUT_BASE}/%(upload_date)s %(title)s (%(id)s).%(ext)s" \
+        $YTDL_ARGS -o "$OUTPUT_PATH.ts" \
         "${WEBPAGE_URL}"
     else
-      youtube-dl \
+      yt-dlp \
         --ignore-config \
         --external-downloader aria2c \
         --external-downloader-args '-j 16 -s 16 -x 16 -k 1M --retry-wait 10 --max-tries 10' \
@@ -1340,7 +1340,7 @@ function func_download_youtube() {
         --sub-format best \
         --retries 30 \
         --cookies cookies.txt \
-        $YTDL_ARGS -o "${OUTPUT_BASE}/%(upload_date)s %(title)s (%(id)s).%(ext)s" \
+        $YTDL_ARGS -o "$OUTPUT_PATH.mp4" \
         "${WEBPAGE_URL}"
     fi
   else
@@ -1366,16 +1366,16 @@ function func_finalize_download() {
 
       # Remove original TS file
       rm -f "$OUTPUT_PATH.ts"
-
-      # Assign finalized path for later use
-      OUTPUT_PATH_EXT=$OUTPUT_PATH.mp4
     fi
+
+    # Assign finalized path for later use
+    OUTPUT_PATH_EXT=$OUTPUT_PATH.mp4
   else
     OUTPUT_PATH_EXT=$OUTPUT_PATH.ts
   fi
 
   if [ "$SKIP_METADATA" == "false" ]; then
-    __info "Trying to write metadata and artwork"
+    __info "Trying to write metadata"
 
     # Write metadata to MP4 if exists (will override existing with -y option)
     if [ -f "$OUTPUT_PATH.mp4" ]; then
@@ -1391,28 +1391,6 @@ function func_finalize_download() {
       rm -f "$OUTPUT_PATH.mp4" && mv "$OUTPUT_PATH-metadata.mp4" "$OUTPUT_PATH.mp4"
     else
       __info "$(__yellow "Output file not exists, skip writing metadata.")"
-    fi
-
-    # Writing artwork cover if exists
-    # I have to emabed artwork and metadata in two separate steps because FFmpeg can't pipe these
-    # two steps into one. And AtomicParsley also doesn't support medatada in-file writing.
-    if [ -f "$OUTPUT_PATH.mp4" ]; then
-      __info "Writing artwork"
-
-      # Check if artwork avaiable
-      if [ -f "$OUTPUT_PATH.jpg" ]; then
-        ffmpeg -i "$OUTPUT_PATH.mp4" -y \
-          -i "$OUTPUT_PATH.jpg" \
-          -map 1 -map 0 \
-          -codec copy \
-          -disposition:0 attached_pic \
-          "$OUTPUT_PATH-artwork.mp4" >> "$OUTPUT_PATH.log" 2>&1
-        rm -f "$OUTPUT_PATH.mp4" && mv "$OUTPUT_PATH-artwork.mp4" "$OUTPUT_PATH.mp4"
-      else
-        __info "$(__yellow "Artwork missing, this is a rare case, please report at my GitHub.")"
-      fi
-    else
-      __info "$(__yellow "Output file not exists, skip embedding artwork.")"
     fi
   fi
 
@@ -1504,8 +1482,8 @@ Options:
                               limited by YouTube
   --user-agent, -u            Custom User-Agent for cURL requests
   --image-proxy               Custom image proxy service for notifications
-  --ytdl-stream               Use youtube-dl to handle livestreams instead of streamlink
-  --ytdl-args                 Passing additional options to youtube-dl. options should be quoted
+  --ytdl-stream               Use yt-dlp to handle livestreams instead of streamlink
+  --ytdl-args                 Passing additional options to yt-dlp. options should be quoted
   --streamlink-args           Passing additional options to streamlink. options should be quoted
   --skip-convert              Skip converting TS file to MP4
   --skip-metadata             Skip embedding metadata
@@ -1590,7 +1568,7 @@ __info "Mode                           : ${MODE}"
 __info "Output base dir                : ${BASE_DIR}"
 __info "Run interval (when loop)       : ${INTERVAL}"
 __info "Custom image proxy             : ${IMAGE_PROXY}"
-__info "Use youtube-dl for streams     : ${YTDL_STREAM}"
+__info "Use yt-dlp for streams         : ${YTDL_STREAM}"
 __info "Skip convert                   : ${SKIP_CONVERT}"
 __info "Skip embedding metadata        : ${SKIP_METADATA}"
 __info "Skip email notification        : ${SKIP_EMAIL}"
