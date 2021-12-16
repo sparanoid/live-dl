@@ -9,6 +9,12 @@ Monitor and download live streams from YouTube.
 
 ## Features
 
+- Monitor your favorite YouTube channels and download streams when it starts
+- Email/Slack notifications when the stream starts or finish downloading
+- Writing streamer metadata (author/channel name, description, year) via FFmpeg
+- Keywords filter: only download streams that match specific keywords (or regular expressions) in the title
+- Download subtitles if available
+- Convert TS to MP4 automatically after downloading
 - URL guessing: this script will try its best to guess what you pass to it, the following URLs/URIs should all work:
   - https://www.youtube.com/channel/UC1opHUrw8rvnsadT-iGp7Cg/live
   - https://www.youtube.com/channel/UC1opHUrw8rvnsadT-iGp7Cg
@@ -16,13 +22,6 @@ Monitor and download live streams from YouTube.
   - https://www.youtube.com/playlist?list=UU1opHUrw8rvnsadT-iGp7Cg
   - S3CAGeeMRvo
   - UC1opHUrw8rvnsadT-iGp7Cg
-- Monitor your favorite YouTube channels and download streams when it starts
-- Email/Slack notifications when the stream starts or finish downloading
-- Writing streamer metadata (author/channel name, description, year) via FFmpeg
-- Embed YouTube thumbnail as video cover via ~~AtomicParsley~~ (now handled by FFmpeg)
-- Keywords filter: only download streams that match specific keywords (or regular expressions) in the title
-- Download subtitles if available
-- Convert TS to MP4 automatically after downloading
 
 ## System Requirements
 
