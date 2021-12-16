@@ -61,19 +61,19 @@ Run live-dl with host volume mounted:
 ```bash
 # Mount host volume for download directory:
 docker run --rm -itd \
-  -v $(pwd)/downloads:/opt/live-dl/downloads \
+  -v $(pwd)/downloads:/app/downloads \
   sparanoid/live-dl:latest \
   'UC1opHUrw8rvnsadT-iGp7Cg'
 
 # Mount host volume for custom config.yml:
 docker run --rm -itd \
-  -v $(pwd)/config.yml:/opt/live-dl/config.yml \
+  -v $(pwd)/config.yml:/app/config.yml \
   sparanoid/live-dl:latest \
   'UC1opHUrw8rvnsadT-iGp7Cg'
 
 # Mount host volume for custom cookies.txt:
 docker run --rm -itd \
-  -v $(pwd)/youtube.com_cookies.txt:/opt/live-dl/cookies.txt \
+  -v $(pwd)/youtube.com_cookies.txt:/app/cookies.txt \
   sparanoid/live-dl:latest \
   'UC1opHUrw8rvnsadT-iGp7Cg'
 ```
@@ -89,9 +89,9 @@ x-defaults: &defaults
   image: sparanoid/live-dl:latest
   restart: always
   volumes:
-    - ./config.yml:/opt/live-dl/config.yml
-    - ./youtube.com_cookies.txt:/opt/live-dl/cookies.txt
-    - ./downloads:/opt/live-dl/downloads
+    - ./config.yml:/app/config.yml
+    - ./youtube.com_cookies.txt:/app/cookies.txt
+    - ./downloads:/app/downloads
 
 services:
   minatoaqua:
@@ -138,7 +138,7 @@ docker compose up [--build]
 
 # Method 2: Use Dockerfile
 docker build -t sparanoid/live-dl:local .
-docker run -it -v $(pwd):/opt/live-dl sparanoid/live-dl:local
+docker run -it -v $(pwd):/app sparanoid/live-dl:local
 ```
 
 If you'd like to run it locally. You need to install all the dependencies defined in `live-dl`.
