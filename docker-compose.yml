@@ -12,7 +12,7 @@ x-defaults: &defaults
   environment:
     - _PARAM_BASE_DIR=testdir
   volumes:
-    - .:/opt/live-dl
+    - .:/app
 
 services:
   # testlive:

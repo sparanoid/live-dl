@@ -21,10 +21,10 @@ RUN apk update -f \
 
 RUN pip install --no-cache-dir --upgrade streamlink yq yt-dlp
 
-COPY ./live-dl /opt/live-dl/
-COPY ./config.example.yml /opt/live-dl/config.yml
-RUN chmod a+x /opt/live-dl/live-dl
+COPY ./live-dl /app/
+COPY ./config.example.yml /app/config.yml
+RUN chmod a+x /app/live-dl
 
-VOLUME /opt/live-dl/
+VOLUME /app/
 
-ENTRYPOINT ["/opt/live-dl/live-dl"]
+ENTRYPOINT ["/app/live-dl"]
