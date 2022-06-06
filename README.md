@@ -43,7 +43,8 @@ docker run --rm -it sparanoid/live-dl:latest
 Run live-dl in interactive mode:
 
 ```bash
-docker run --rm -it \
+docker run --rm -it --init \
+  -v $(pwd)/downloads:/app/downloads \
   sparanoid/live-dl:latest \
   'UC1opHUrw8rvnsadT-iGp7Cg'
 ```
@@ -51,7 +52,8 @@ docker run --rm -it \
 Run live-dl as a Docker daemon:
 
 ```bash
-docker run --rm -itd \
+docker run --rm -itd --init \
+  -v $(pwd)/downloads:/app/downloads \
   sparanoid/live-dl:latest \
   'UC1opHUrw8rvnsadT-iGp7Cg'
 ```
@@ -59,20 +61,16 @@ docker run --rm -itd \
 Run live-dl with host volume mounted:
 
 ```bash
-# Mount host volume for download directory:
-docker run --rm -itd \
-  -v $(pwd)/downloads:/app/downloads \
-  sparanoid/live-dl:latest \
-  'UC1opHUrw8rvnsadT-iGp7Cg'
-
 # Mount host volume for custom config.yml:
-docker run --rm -itd \
+docker run --rm -itd --init \
+  -v $(pwd)/downloads:/app/downloads \
   -v $(pwd)/config.yml:/app/config.yml \
   sparanoid/live-dl:latest \
   'UC1opHUrw8rvnsadT-iGp7Cg'
 
 # Mount host volume for custom cookies.txt:
-docker run --rm -itd \
+docker run --rm -itd --init \
+  -v $(pwd)/downloads:/app/downloads \
   -v $(pwd)/youtube.com_cookies.txt:/app/cookies.txt \
   sparanoid/live-dl:latest \
   'UC1opHUrw8rvnsadT-iGp7Cg'
