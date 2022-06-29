@@ -3,8 +3,8 @@ name: Build
 on:
   push:
     branches:
-      - 'override-config-path'
-      - 'master'
+      - override-config-path
+      - master
 
 env:
   GHCR_SLUG: ghcr.io/splaspood/live-dl
