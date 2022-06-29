@@ -5,15 +5,6 @@ on:
     branches:
       - 'override-config-path'
       - 'master'
-    tags:
-      - 'v*'
-  pull_request:
-    branches:
-      - 'master'
-      - 'override-config-path'
-  schedule:
-    - cron: '21 12 * * *'
-  workflow_dispatch:
 
 env:
   GHCR_SLUG: ghcr.io/splaspood/live-dl
