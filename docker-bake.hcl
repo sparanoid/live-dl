@@ -1,5 +1,5 @@
 variable "DEFAULT_TAG" {
-  default = ["sparanoid/live-dl:local"]
+  default = ["splaspood/live-dl:local"]
 }
 
 # Special target: https://github.com/docker/metadata-action#bake-definition

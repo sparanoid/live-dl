@@ -3,6 +3,7 @@ name: Build
 on:
   push:
     branches:
+      - 'override-config-path'
       - 'master'
     tags:
       - 'v*'
@@ -14,8 +15,7 @@ on:
   workflow_dispatch:
 
 env:
-  DOCKERHUB_SLUG: sparanoid/live-dl
-  GHCR_SLUG: ghcr.io/sparanoid/live-dl
+  GHCR_SLUG: ghcr.io/splaspood/live-dl
 
 jobs:
   docker:
@@ -41,19 +41,11 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Log in to Docker Hub
-        if: github.event_name != 'pull_request'
-        uses: docker/login-action@v1
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v3
         with:
           images: |
-            ${{ env.DOCKERHUB_SLUG }}
             ${{ env.GHCR_SLUG }}
           tags: |
             type=edge
