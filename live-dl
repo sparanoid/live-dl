@@ -109,6 +109,11 @@ while [ $# -gt 0 ]; do
       shift # past argument
       shift # past value
       ;;
+    -c|--config)
+      PARAM_CONFIG_FILE="$2"
+      shift
+      shift
+      ;;
     -m|--mode)
       PARAM_MODE="$2"
       shift
@@ -1498,11 +1503,11 @@ Options:
 fi
 
 # Check if we have config.yml
-if ! [ -f config.yml ]; then
-  __info "$(__red "No config.yml, 'cp config.example.yml config.yml' and rerun this script.")"
+if ! [ -f "${PARAM_CONFIG_FILE}" ]; then
+  __info "$(__red "No config.yml, 'cp config.example.yml ${PARAM_CONFIG}' and rerun this script.")"
   exit 1;
 else
-  CONFIG_RAW=`cat config.yml | yq -r .`
+  CONFIG_RAW=`cat "${PARAM_CONFIG_FILE}" | yq -r .`
 fi
 
 # Set default settings
