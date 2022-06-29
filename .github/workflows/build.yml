@@ -10,6 +10,7 @@ on:
   pull_request:
     branches:
       - 'master'
+      - 'override-config-path'
   schedule:
     - cron: '21 12 * * *'
   workflow_dispatch:
