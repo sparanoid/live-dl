@@ -1,5 +1,7 @@
 FROM python:3.8.5-alpine
 
+WORKDIR /app
+
 RUN apk update -f \
     && apk add --no-cache -f \
     bash \
@@ -21,10 +23,8 @@ RUN apk update -f \
 
 RUN pip install --no-cache-dir --upgrade streamlink yq yt-dlp
 
-COPY ./live-dl /app/
-COPY ./config.example.yml /app/config.yml
-RUN chmod a+x /app/live-dl
+COPY ./live-dl ./
+COPY ./config.example.yml ./config.yml
+RUN chmod a+x ./live-dl
 
-VOLUME /app/
-
-ENTRYPOINT ["/app/live-dl"]
+ENTRYPOINT ["./live-dl"]
